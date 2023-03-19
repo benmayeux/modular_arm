@@ -20,6 +20,7 @@ def menubar():  # makes the menu bar, such that it's consistent across windows
 
 
 def save_callback(sender, app_data, user_data):  # example function for obtaining data from widget
+    # print(sender)
     print(dpg.get_value(user_data))
 
 
@@ -57,13 +58,25 @@ def update_custom():  # updates the custom window buttons based on the number of
     file = open(filename, 'r')
     content = file.read()
     file.close()
+    dpg.delete_item("starting_cus")  # remove the text that informed user what to do at start
+
     for i in range(modules):
         dpg.delete_item("cus_group" + str(i))
     for i in range(int(content)):
-        with dpg.group(horizontal=True, width=110, parent="cus_window", tag="cus_group" + str(i)):
+        with dpg.group(horizontal=True, width=110, parent="cus_joints", tag="cus_group" + str(i)):
             dpg.add_input_float(label="Joint " + str(i + 1), tag="cus_joint" + str(i), default_value=0, step=0.01)
             dpg.add_button(label="Set", callback=save_callback, user_data="cus_joint" + str(i), tag="cus_set" + str(i))
-    modules = int(content)
+    modules = int(content)  # update modules variable
+
+
+def addJointControlInput(config_name, n_modules):
+    with dpg.collapsing_header(label="Joint Control", default_open=True):
+        with dpg.group(width=110):
+            for i in range(n_modules):
+                with dpg.group(horizontal=True):
+                    dpg.add_input_float(label="Joint " + str(i + 1), tag="joint" + str(i) + config_name,
+                                        default_value=0, step=0.01)
+                    dpg.add_button(label="Set", callback=save_callback, user_data="joint" + str(i) + config_name)
 
 
 """GUI structure"""
@@ -93,16 +106,21 @@ with dpg.window(label="RRR", modal=False, show=False, tag="RRR_window", no_title
     dpg.add_button(label="Back", callback=window_change, user_data=["RRR_window", "Primary Window"])
     dpg.add_separator()
 
-    with dpg.group(width=110):  # joint controls
-        with dpg.group(horizontal=True):
-            dpg.add_input_float(tag="joint1RRR", label="Joint 1", default_value=0, step=0.01)
-            dpg.add_button(label="Set", callback=save_callback, user_data="joint1RRR")
-        with dpg.group(horizontal=True):
-            dpg.add_input_float(tag="joint2RRR", label="Joint 2", default_value=0, step=0.01)
-            dpg.add_button(label="Set", callback=save_callback, user_data="joint2RRR")
-        with dpg.group(horizontal=True):
-            dpg.add_input_float(tag="joint3RRR", label="Joint 3", default_value=0, step=0.01)
-            dpg.add_button(label="Set", callback=save_callback, user_data="joint3RRR")
+    addJointControlInput("RRR", 3)
+
+    with dpg.collapsing_header(label="Task Space Control"):
+        dpg.add_3d_slider(label="Workspace (mm)", tag="taskRRR")
+        dpg.add_button(label="Set", callback=save_callback, user_data="taskRRR")
+
+with dpg.window(label="Custom", show=False, tag="cus_window"):
+    menubar()
+    with dpg.group():
+        dpg.add_button(label="Back", callback=window_change, user_data=["cus_window", "Primary Window"])
+        dpg.add_button(label="Scan Parts", callback=update_custom)  # where the joint number update happens
+    dpg.add_separator()
+
+    with dpg.collapsing_header(label="Joint Control", default_open=True, tag="cus_joints"):
+        dpg.add_text("Press Scan Parts", tag="starting_cus")
 
     with dpg.collapsing_header(label="Data Collection"):  # graphs
         with dpg.tree_node(label="Torques"):
@@ -117,13 +135,6 @@ with dpg.window(label="RRR", modal=False, show=False, tag="RRR_window", no_title
 
                 # series belong to a y axis
                 dpg.add_line_series(plot_t, plot_datay, label="t=0", parent="y_axis", tag="series_tag")
-
-with dpg.window(label="Custom", show=False, tag="cus_window"):
-    menubar()
-    with dpg.group():
-        dpg.add_button(label="Back", callback=window_change, user_data=["cus_window", "Primary Window"])
-        dpg.add_button(label="Scan Parts", callback=update_custom)
-    dpg.add_separator()
 
 """Final stuff to display GUI"""
 dpg.create_viewport(title='Modular Arm', width=600, height=300)  # window created by OS to show GUI windows
