@@ -1,0 +1,131 @@
+<?xml version="1.0" ?>
+
+<robot name="mrm" xlmns:xacro="http://www.ros.org/wiki/xacro">
+
+<material name="omni/Blue">
+    <color rgba="0 0 0.8 1"/>
+  </material>
+  <material name="omni/Red">
+    <color rgba="1 0 0 1"/>
+  </material>
+  <material name="omni/Green">
+    <color rgba="0 1 0 1"/>
+  </material>
+  <material name="omni/Yellow">
+    <color rgba="1 1 0 1"/>
+  </material>
+  <material name="omni/LightGrey">
+    <color rgba="0.6 0.6 0.6 1"/>
+  </material>
+  <material name="omni/DarkGrey">
+    <color rgba="0.4 0.4 0.4 1"/>
+  </material>
+  
+  <link name="base_link" type="fixed">
+     <inertial>
+      <mass value="1.0"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="0.1" ixy="0.0" ixz="0.0" iyy="0.1" iyz="0.0" izz="0.1"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size=".1 .1 .1"/>
+      </geometry>
+      <material name="omni/LightGrey"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size=".1 .1 .1"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="base_link__link_01" type="revolute">
+      <axis xyz="0 0 1"/>
+      <limit effort="100.0" lower="-3.14" upper="3.14" velocity="0.5"/>
+      <origin rpy="0 0 0" xyz="0 0 .1"/>
+      <parent link="base_link"/>
+      <child link="link_01"/>
+  </joint>
+  <link name="link_01">
+      <inertial>
+        <mass value="0.5"/>
+        <origin xyz="0 0 .05" rpy="0 0 0"/>
+        <inertia ixx="0.05" ixy="0.0" ixz="0.0" iyy="0.05" iyz="0.0" izz="0.05"/>
+      </inertial>
+      <visual>
+        <origin xyz="0 0 .05" rpy="0 0 0"/>
+        <geometry>
+          <box size=".025 .025 .2"/>
+        </geometry>
+          <material name="omni/Blue"/>
+      </visual>
+      <collision>
+        <origin xyz="0 0 .05" rpy="0 0 0"/>
+        <geometry>
+          <box size=".025 .025 .2"/>
+        </geometry>
+      </collision>
+      
+    </link>
+
+    <joint name="link_01__link_12" type="revolute">
+      <axis xyz="1 0 0"/>
+      <limit effort="1000.0" lower="-3.14" upper="3.14" velocity="0.5"/>
+      <origin rpy="0 0 0" xyz="0 0 .1375"/>
+      <parent link="link_01"/>
+      <child link="link_12"/>
+    </joint>
+    <link name="link_12">
+      <inertial>
+        <mass value="0.5"/>
+        <origin xyz="-.025 0 .0625" rpy="0 0 0"/>
+        <inertia ixx="0.05" ixy="0.0" ixz="0.0" iyy="0.05" iyz="0.0" izz="0.05"/>
+      </inertial>
+      <visual>
+        <origin xyz="-.025 0 .0625" rpy="0 0 0"/>
+        <geometry>
+          <box size=".025 .025 .2"/>
+        </geometry>
+        <material name="omni/Yellow"/>
+      </visual>
+      <collision>
+        <origin xyz="-.025 0 .0625" rpy="0 0 0"/>
+        <geometry>
+          <box size=".025 .025 .2"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="link_12__link_23" type="revolute">
+      <axis xyz="1 0 0"/>
+      <limit effort="1000.0" lower="-3.14" upper="18.14" velocity="0.5"/>
+      <origin rpy="0 0 0" xyz="0 0 .15"/>
+      <parent link="link_12"/>
+      <child link="link_23"/>
+    </joint>
+
+    <link name="link_23">
+      <inertial>
+        <mass value="0.5"/>
+        <origin xyz="0 0 .0625" rpy="0 0 0"/>
+        <color rgba="0 0 0.8 1"/>
+        <inertia ixx="0.05" ixy="0.0" ixz="0.0" iyy="0.05" iyz="0.0" izz="0.05"/>
+      </inertial>
+      <visual>
+        <origin xyz="0 0 .0625" rpy="0 0 0"/>
+        <geometry>
+          <box size=".025 .025 .2"/>
+        </geometry>
+        <material name="omni/Red"/>
+      </visual>
+      <collision>
+        <origin xyz="0 0 .0625" rpy="0 0 0"/>
+        <geometry>
+          <box size=".025 .025 .2"/>
+        </geometry>
+      </collision>
+    </link>
+
+</robot>
