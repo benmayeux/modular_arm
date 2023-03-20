@@ -23,7 +23,7 @@ def main():
     for i in range (10000):
         tPos = [1.57,.785,-1.57]
         #Get current pos and vel for all joints
-        robotPos,robotVel = jointStates(robotID)
+        robotPos,robotVel = getJointStates(robotID)
         U,targets = calcFeedbackLinearization(Kp,Kd,[1.57,0,0],robotPos,robotVel,0,currT)
         
         if currT<5: mode = p.setJointMotorControlArray(robotID, [0,1,2], controlMode=p.TORQUE_CONTROL, forces=[U,0,0])
@@ -42,7 +42,7 @@ def main():
     cubePos, cubeOrn = p.getBasePositionAndOrientation(robotID)
     p.disconnect()
 
-def jointStates(robotID):
+def getJointStates(robotID):
     #Get all state info 
     joint1State = p.getJointState(robotID,0)
     joint2State = p.getJointState(robotID,1)
@@ -104,5 +104,42 @@ def calcFeedbackLinearization(Kp,Kd,desPos,curPos,curVel,startT,currT):
 
     return u,desiredThetas
 
+#convets omegas (w) to skew matrix (w hat)
+def omegaToSkew(omega):
+     
+    w = np.matrix([[0,-omega[2],omega[1]],
+                   [omega[2],0,-omega[0]],
+                   [-omega[1],omega[0],0]])
+
+    return w
+
+def expTransform(S,theta):
+    w = omegaToSkew(S[0:3])
+    v = S[3:6]
+
+    R = np.eye(3) + (m.sin(theta)*w) + ((1-m.cos(theta))*w**2)
+    R = np.append(R,np.array([[0,0,0]]),axis=0)
+    V = np.matmul((np.eye(3)*theta+(1-m.cos(theta))*w + (theta-m.sin(theta)*w**2)),v).transpose()
+    V = np.append(V,np.array([[1]]),axis=0)
+
+    ES = np.concatenate((R,V),axis=1)
+    return ES
+
+def fkWorld(M,Slist,thetaList):
+    T = M
+    for i in range(thetaList.shape[0]-1,-1,-1):
+        T = np.matmul(expTransform(Slist[:,i],thetaList[i]),T)
+    return T
+
 if __name__ == '__main__':
-    main()
+    np.set_printoptions(precision=3,suppress=True)
+
+    M = np.array([[1,0,0,870],
+                  [0,1,0,0],
+                  [0,0,1,1195],
+                  [0,0,0,1]])
+    thetaList = np.array([0,0,0])
+    SList = np.array([[0,0,0],[0,-1,-1],[1,0,0],[0,475,1075],[0,0,0],[0,-150,-150]])
+    T03 = fkWorld(M,SList,thetaList)
+    print(T03)
+    #main()
