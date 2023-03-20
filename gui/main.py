@@ -84,6 +84,7 @@ def addJointControlInput(config_name, n_modules):
 # load images
 RRR_width, RRR_height, RRR_channels, RRR_data = dpg.load_image("RRR.png")
 cus_width, cus_height, cus_channels, cus_data = dpg.load_image("custom.png")
+
 with dpg.texture_registry(show=False):
     dpg.add_static_texture(width=RRR_width, height=RRR_height, default_value=RRR_data, tag="RRR_image")
     dpg.add_static_texture(width=cus_width, height=cus_height, default_value=cus_data, tag="cus_image")
@@ -94,10 +95,12 @@ with dpg.window(tag="Primary Window"):
     dpg.add_separator()
     with dpg.group(horizontal=True):
         with dpg.group():
+            dpg.add_text("RRR")
             dpg.add_image("RRR_image")
             dpg.add_button(label="Select###RRR", callback=window_change, user_data=["Primary Window", "RRR_window"])
 
         with dpg.group():
+            dpg.add_text("Custom")
             dpg.add_image("cus_image")
             dpg.add_button(label="Select###cus", callback=window_change, user_data=["Primary Window", "cus_window"])
 
@@ -109,18 +112,8 @@ with dpg.window(label="RRR", modal=False, show=False, tag="RRR_window", no_title
     addJointControlInput("RRR", 3)
 
     with dpg.collapsing_header(label="Task Space Control"):
-        dpg.add_3d_slider(label="Workspace (mm)", tag="taskRRR")
+        dpg.add_3d_slider(label="Workspace (mm)", tag="taskRRR", scale=0.3)
         dpg.add_button(label="Set", callback=save_callback, user_data="taskRRR")
-
-with dpg.window(label="Custom", show=False, tag="cus_window"):
-    menubar()
-    with dpg.group():
-        dpg.add_button(label="Back", callback=window_change, user_data=["cus_window", "Primary Window"])
-        dpg.add_button(label="Scan Parts", callback=update_custom)  # where the joint number update happens
-    dpg.add_separator()
-
-    with dpg.collapsing_header(label="Joint Control", default_open=True, tag="cus_joints"):
-        dpg.add_text("Press Scan Parts", tag="starting_cus")
 
     with dpg.collapsing_header(label="Data Collection"):  # graphs
         with dpg.tree_node(label="Torques"):
@@ -135,6 +128,16 @@ with dpg.window(label="Custom", show=False, tag="cus_window"):
 
                 # series belong to a y axis
                 dpg.add_line_series(plot_t, plot_datay, label="t=0", parent="y_axis", tag="series_tag")
+
+with dpg.window(label="Custom", show=False, tag="cus_window"):
+    menubar()
+    with dpg.group():
+        dpg.add_button(label="Back", callback=window_change, user_data=["cus_window", "Primary Window"])
+        dpg.add_button(label="Scan Parts", callback=update_custom)  # where the joint number update happens
+    dpg.add_separator()
+
+    with dpg.collapsing_header(label="Joint Control", default_open=True, tag="cus_joints"):
+        dpg.add_text("Press Scan Parts", tag="starting_cus")
 
 """Final stuff to display GUI"""
 dpg.create_viewport(title='Modular Arm', width=600, height=300)  # window created by OS to show GUI windows
