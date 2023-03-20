@@ -1,6 +1,7 @@
 import pybullet as p
 import time
 import pybullet_data
+import matplotlib.pyplot as plt
 import numpy as np
 import math as m
 
@@ -20,7 +21,9 @@ def main():
     currT = 0
     Kd = .15
     Kp = 2
-    for i in range (10000):
+    targetLog = []
+    thetaLog = []
+    while currT<5.1:
         tPos = [1.57,.785,-1.57]
         #Get current pos and vel for all joints
         robotPos,robotVel = getJointStates(robotID)
@@ -28,6 +31,11 @@ def main():
         
         if currT<5: mode = p.setJointMotorControlArray(robotID, [0,1,2], controlMode=p.TORQUE_CONTROL, forces=[U,0,0])
         else: mode = p.setJointMotorControlArray(robotID, [0], controlMode=p.VELOCITY_CONTROL, forces=[0])
+
+        desiredThetas = traj_evaluate(0,5,currT,[0,0,0],[1.57,0,0])
+        targetLog.append(desiredThetas[0,0])
+        thetaLog.append(robotPos[0])
+
         p.stepSimulation()
 
         if round(currT%.1,2)==0: 
@@ -38,9 +46,10 @@ def main():
 
         time.sleep(1./240.)
         currT += 1./240.
-
     cubePos, cubeOrn = p.getBasePositionAndOrientation(robotID)
     p.disconnect()
+    return targetLog,thetaLog
+    
 
 def getJointStates(robotID):
     #Get all state info 
@@ -142,4 +151,14 @@ if __name__ == '__main__':
     SList = np.array([[0,0,0],[0,-1,-1],[1,0,0],[0,475,1075],[0,0,0],[0,-150,-150]])
     T03 = fkWorld(M,SList,thetaList)
     print(T03)
-    #main()
+    targetLog,thetaLog = main()
+
+    fig = plt.figure()
+    fig, ax = plt.subplots()
+    ax.plot(targetLog,label='target')
+    ax.plot(thetaLog,label='actual')
+    ax.set_title("Target/Actual Angular Position over time")
+    ax.set_xlabel('Simulation Steps (240hz)')
+    ax.set_ylabel('Angle (rads)')
+    ax.legend()
+    plt.show()
