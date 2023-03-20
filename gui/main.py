@@ -79,6 +79,43 @@ def addJointControlInput(config_name, n_modules):
                     dpg.add_button(label="Set", callback=save_callback, user_data="joint" + str(i) + config_name)
 
 
+def addTaskSpaceInput(config_name):
+    with dpg.collapsing_header(label="Task Space Control"):
+        dpg.add_3d_slider(label="Workspace (mm)", tag="task" + config_name, scale=0.3, callback=update_slider_inputs,
+                          user_data=[config_name + "x", config_name + "y", config_name + "z"])
+        with dpg.group(horizontal=True):
+            dpg.add_input_float(label="x", tag=config_name + "x", callback=update_3d_slider,
+                                user_data=["task" + config_name, "x"], width=110)
+            dpg.add_input_float(label="y", tag=config_name + "y", callback=update_3d_slider,
+                                user_data=["task" + config_name, "y"], width=110)
+            dpg.add_input_float(label="z", tag=config_name + "z", callback=update_3d_slider,
+                                user_data=["task" + config_name, "z"], width=110)
+        dpg.add_button(label="Set", callback=save_callback, user_data="task" + config_name)
+
+
+def update_3d_slider(sender, app_data, user_data):
+    # slider values = [x z y]
+    currVal = dpg.get_value(user_data[0])
+    newVal = app_data
+    if user_data[1] == "x":
+        currVal[0] = newVal
+    elif user_data[1] == "y":
+        currVal[2] = newVal
+    else:
+        currVal[1] = newVal
+    # print(currVal)
+    dpg.set_value(user_data[0], currVal)
+
+
+def update_slider_inputs(sender, app_data, user_data):
+    # slider values = [x z y]
+    currVal = app_data
+    print(currVal)
+    dpg.set_value(user_data[0], currVal[0])
+    dpg.set_value(user_data[1], currVal[2])
+    dpg.set_value(user_data[2], currVal[1])
+
+
 """GUI structure"""
 
 # load images
@@ -110,10 +147,7 @@ with dpg.window(label="RRR", modal=False, show=False, tag="RRR_window", no_title
     dpg.add_separator()
 
     addJointControlInput("RRR", 3)
-
-    with dpg.collapsing_header(label="Task Space Control"):
-        dpg.add_3d_slider(label="Workspace (mm)", tag="taskRRR", scale=0.3)
-        dpg.add_button(label="Set", callback=save_callback, user_data="taskRRR")
+    addTaskSpaceInput("RRR")
 
     with dpg.collapsing_header(label="Data Collection"):  # graphs
         with dpg.tree_node(label="Torques"):
