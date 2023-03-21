@@ -2,6 +2,7 @@ import dearpygui.dearpygui as dpg
 # https://dearpygui.readthedocs.io/en/latest/about/what-why.html
 from math import sin, cos
 
+frames = 0  # keeps track of the number of frames
 dpg.create_context()  # important line needed at the beginning of every dpg script
 
 """External file stuff"""
@@ -20,7 +21,7 @@ def menubar():  # makes the menu bar, such that it's consistent across windows
 
 
 def save_callback(sender, app_data, user_data):  # example function for obtaining data from widget
-    # print(sender)
+    print(user_data)
     print(dpg.get_value(user_data))
 
 
@@ -35,22 +36,13 @@ def window_change(sender, app_data, user_data):
 # some fake data rn to test update plot
 plot_t = [0]
 plot_datay = [0]
-frames = 0
 
-
-def update_plot(frame_count):  # not generalized yet
-    # updating plot data
+def update_fake_data(): # for testing
     if len(plot_t) > 200:
         plot_t.pop(0)
         plot_datay.pop(0)
     plot_t.append(plot_t[-1] + 0.5)
     plot_datay.append(cos(3 * 3.14 * plot_t[-1] / 180))
-
-    # plotting new data
-    dpg.set_value('series_tag', [plot_t, plot_datay])
-    dpg.fit_axis_data('x_axis')
-    # dpg.fit_axis_data('y_axis')
-    dpg.set_item_label('series_tag', "t=" + str(frame_count))  # not necessary
 
 
 def update_custom():  # updates the custom window buttons based on the number of modules
@@ -91,6 +83,31 @@ def addTaskSpaceInput(config_name):
             dpg.add_input_float(label="z", tag=config_name + "z", callback=update_3d_slider,
                                 user_data=["task" + config_name, "z"], width=110)
         dpg.add_button(label="Set", callback=save_callback, user_data="task" + config_name)
+
+
+def addPlot(name, x_name, y_name, x_data, y_data):
+    """Make sure to use updatePlot function in running loop if dynamic"""
+    with dpg.plot(label=name, height=400, width=400):
+        # optionally create legend
+        dpg.add_plot_legend()
+
+        # REQUIRED: create x and y axes
+        dpg.add_plot_axis(dpg.mvXAxis, label=x_name, tag=name + '_x_axis')
+        dpg.add_plot_axis(dpg.mvYAxis, label=y_name, tag=name + "_y_axis")
+
+        # series belong to a y axis
+        if len(y_data) == 1:
+            dpg.add_line_series(x_data, y_data, label=y_name, parent=name + "_y_axis", tag=name)
+        else:
+            for i in range(len(y_data)):
+                dpg.add_line_series(x_data, y_data[i], label=y_name + " " + str(i + 1), parent=name + "_y_axis",
+                                    tag=name + str(i + 1))
+
+
+def update_plot(name, x_data, y_data):
+    # plotting new data
+    dpg.set_value(name, [x_data, y_data])
+    dpg.fit_axis_data(name + "_x_axis")
 
 
 def update_3d_slider(sender, app_data, user_data):
@@ -151,17 +168,9 @@ with dpg.window(label="RRR", modal=False, show=False, tag="RRR_window", no_title
 
     with dpg.collapsing_header(label="Data Collection"):  # graphs
         with dpg.tree_node(label="Torques"):
-            # create plot
-            with dpg.plot(label="Line Series", height=400, width=400):
-                # optionally create legend
-                dpg.add_plot_legend()
-
-                # REQUIRED: create x and y axes
-                dpg.add_plot_axis(dpg.mvXAxis, label="x", tag='x_axis')
-                dpg.add_plot_axis(dpg.mvYAxis, label="y", tag="y_axis")
-
-                # series belong to a y axis
-                dpg.add_line_series(plot_t, plot_datay, label="t=0", parent="y_axis", tag="series_tag")
+            addPlot("RRRTorque", "Time", "Torque", plot_t, plot_datay)
+        with dpg.tree_node(label="Velocities"):
+            addPlot("RRRVelocity", "Time", "Velocity", plot_t, plot_datay)
 
 with dpg.window(label="Custom", show=False, tag="cus_window"):
     menubar()
@@ -188,8 +197,9 @@ while dpg.is_dearpygui_running():  # this starts the runtime loop
     # insert here any code you would like to run in the render loop
     # you can manually stop by using stop_dearpygui()
     # print("this will run every frame")
-
-    update_plot(frames)  # custom function to update a plot
+    update_fake_data()  # for dynamic graph testing
+    update_plot("RRRTorque", plot_t, plot_datay)  # custom function to update a plot
+    update_plot("RRRVelocity", plot_t, plot_datay)  # custom function to update a plot
     frames += 1  # keeping track of frames
     dpg.render_dearpygui_frame()  # render the frame
 
