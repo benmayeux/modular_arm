@@ -1,13 +1,62 @@
 import dearpygui.dearpygui as dpg
+import matplotlib
 # https://dearpygui.readthedocs.io/en/latest/about/what-why.html
+import numpy as np
 from math import sin, cos
+from matplotlib import pyplot as plt
+from matplotlib.backend_bases import FigureCanvasBase
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 frames = 0  # keeps track of the number of frames
 modules = 1  # keeps track of previous amount of modules for button deletion
+
+showing = False
+backend = plt.get_backend();
+
 dpg.create_context()  # important line needed at the beginning of every dpg script
 
 """Testing stuff"""
 filename = 'text'  # for testing updating custom window
+
+# matplot stuff
+fig_width = 4
+fig_height = 4
+fig = plt.figure(figsize=(fig_width, fig_height), dpi=100)
+ax = fig.add_subplot(111, projection='3d')
+
+# Generate some fake 3D data points
+x = [1, 2, 3]
+y = [4, 5, 6]
+z = [7, 8, 9]
+# Add the points to the plot
+ax.scatter(x, y, z)
+
+canvas = FigureCanvasAgg(fig)
+canvas.draw()
+buf = canvas.buffer_rgba()
+matplot = np.asarray(buf)
+matplot = matplot.astype(np.float32) / 255
+
+
+def updateMatPlot():
+    x.append(np.random.random())
+    y.append(np.random.random())
+    z.append(np.random.random())
+    # print([x,y,z])
+    ax.scatter(x, y, z)
+
+    canvas.draw()
+    buf = canvas.buffer_rgba()
+    matplot = np.asarray(buf)
+    matplot = matplot.astype(np.float32) / 255
+
+    dpg.set_value("matplot", matplot)
+
+
+def windowMatPlot():
+    global showing
+    showing = True
+
 
 # some fake data to test dynamic plots
 plot_t = [0]
@@ -146,6 +195,7 @@ cus_width, cus_height, cus_channels, cus_data = dpg.load_image("custom.png")
 with dpg.texture_registry(show=False):
     dpg.add_static_texture(width=RRR_width, height=RRR_height, default_value=RRR_data, tag="RRR_image")
     dpg.add_static_texture(width=cus_width, height=cus_height, default_value=cus_data, tag="cus_image")
+    dpg.add_raw_texture(fig_width * 100, fig_height * 100, matplot, format=dpg.mvFormat_Float_rgba, tag="matplot")
 
 # Windows
 with dpg.window(tag="Primary Window"):
@@ -170,6 +220,11 @@ with dpg.window(label="RRR", modal=False, show=False, tag="RRR_window", no_title
 
     addJointControlInput("RRR", 3)
     addTaskSpaceInput("RRR")
+
+    dpg.add_image("matplot")
+    with dpg.group(horizontal=True):
+        dpg.add_button(label="test", callback=updateMatPlot)
+        dpg.add_button(label="interact", callback=windowMatPlot)
 
     with dpg.collapsing_header(label="Data Collection"):  # graphs
         """TODO: change data to be from serial inputs"""
@@ -203,10 +258,60 @@ while dpg.is_dearpygui_running():  # this starts the runtime loop
     # insert here any code you would like to run in the render loop
     # you can manually stop by using stop_dearpygui()
     # print("this will run every frame")
-    update_fake_data()  # for dynamic graph testing
-    update_plot("RRRTorque", plot_t, plot_datay)  # custom function to update a plot
-    update_plot("RRRVelocity", plot_t, plot_datay)  # custom function to update a plot
-    frames += 1  # keeping track of frames
-    dpg.render_dearpygui_frame()  # render the frame
+
+    if showing:  # to stop rendering dearpygui for matplot lib
+        interactOff = False
+
+
+        def on_close(event):
+            print("GAAAAAAAAAAAAAAAAAAAAAAH")
+            global interactOff
+            interactOff = True
+
+
+        fig.canvas.mpl_connect('close_event', on_close)
+
+        plt.ion()
+        # print(matplotlib.get_backend())
+        # print(plt.get_backend())
+        plt.show()
+        # while not (len(plt.get_fignums()) == 0):
+        # while FigureCanvasBase.events[0] is not "close_event":
+        while not interactOff:
+            # try:
+            #     # done = not any(map(lambda fignum: plt.fignum_exists(fignum), plt.get_fignums()))
+            #     done = not plt.fignum_exists(1)
+            # except:
+            #     done = True
+            # print(plt.get_fignums())
+            plt.pause(0.01)
+            FigureCanvasBase(fig).flush_events()
+            # print(fig.canvas.manager)
+            # print(FigureCanvasBase.events)
+            # print(interactOff)
+        # print(plt.get_fignums())
+
+        showing = False
+        plt.ioff()
+        # plt.switch_backend('Agg')
+        # remake plot?
+        fig = plt.figure(figsize=(fig_width, fig_height), dpi=100)
+        ax = fig.add_subplot(111, projection='3d')
+
+        # add data
+        ax.scatter(x, y, z)
+
+        canvas = FigureCanvasAgg(fig)
+        canvas.draw()
+        buf = canvas.buffer_rgba()
+        matplot = np.asarray(buf)
+        matplot = matplot.astype(np.float32) / 255
+    else:
+        print(showing)
+        update_fake_data()  # for dynamic graph testing
+        update_plot("RRRTorque", plot_t, plot_datay)  # custom function to update a plot
+        update_plot("RRRVelocity", plot_t, plot_datay)  # custom function to update a plot
+        frames += 1  # keeping track of frames
+        dpg.render_dearpygui_frame()  # render the frame
 
 dpg.destroy_context()  # kill everything on exit
