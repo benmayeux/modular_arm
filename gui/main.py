@@ -10,8 +10,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 frames = 0  # keeps track of the number of frames
 modules = 1  # keeps track of previous amount of modules for button deletion
 
-showing = False
-backend = plt.get_backend();
+matplotInteract = False  # for rendering the interactive matplot
 
 dpg.create_context()  # important line needed at the beginning of every dpg script
 
@@ -23,39 +22,40 @@ fig_width = 4
 fig_height = 4
 fig = plt.figure(figsize=(fig_width, fig_height), dpi=100)
 ax = fig.add_subplot(111, projection='3d')
-
-# Generate some fake 3D data points
-x = [1, 2, 3]
+x = [1, 2, 3]  # Generate some fake 3D data points
 y = [4, 5, 6]
 z = [7, 8, 9]
-# Add the points to the plot
-ax.scatter(x, y, z)
+ax.scatter(x, y, z)  # Add the points to the plot
 
-canvas = FigureCanvasAgg(fig)
-canvas.draw()
-buf = canvas.buffer_rgba()
-matplot = np.asarray(buf)
-matplot = matplot.astype(np.float32) / 255
+
+def convertFigToImage(figure):
+    canvas = FigureCanvasAgg(figure)
+    canvas.draw()
+    buf = canvas.buffer_rgba()
+    plot_image = np.asarray(buf)
+    return plot_image.astype(np.float32) / 255
+
+
+matplot = convertFigToImage(fig)
 
 
 def updateMatPlot():
+    """TODO: Change how new x, y, and z data are obtained"""
     x.append(np.random.random())
     y.append(np.random.random())
     z.append(np.random.random())
     # print([x,y,z])
     ax.scatter(x, y, z)
 
-    canvas.draw()
-    buf = canvas.buffer_rgba()
-    matplot = np.asarray(buf)
-    matplot = matplot.astype(np.float32) / 255
+    # Reset the image value with new plot
+    matplot = convertFigToImage(fig)
 
     dpg.set_value("matplot", matplot)
 
 
-def windowMatPlot():
-    global showing
-    showing = True
+def windowMatPlot():  # to activate the interactive MatPlot
+    global matplotInteract
+    matplotInteract = True
 
 
 # some fake data to test dynamic plots
@@ -259,55 +259,23 @@ while dpg.is_dearpygui_running():  # this starts the runtime loop
     # you can manually stop by using stop_dearpygui()
     # print("this will run every frame")
 
-    if showing:  # to stop rendering dearpygui for matplot lib
-        interactOff = False
-
-
-        def on_close(event):
-            print("GAAAAAAAAAAAAAAAAAAAAAAH")
-            global interactOff
-            interactOff = True
-
-
-        fig.canvas.mpl_connect('close_event', on_close)
+    if matplotInteract:  # to stop rendering dearpygui for matplot lib
 
         plt.ion()
-        # print(matplotlib.get_backend())
-        # print(plt.get_backend())
         plt.show()
-        # while not (len(plt.get_fignums()) == 0):
-        # while FigureCanvasBase.events[0] is not "close_event":
-        while not interactOff:
-            # try:
-            #     # done = not any(map(lambda fignum: plt.fignum_exists(fignum), plt.get_fignums()))
-            #     done = not plt.fignum_exists(1)
-            # except:
-            #     done = True
-            # print(plt.get_fignums())
+        while not (len(plt.get_fignums()) == 0):
             plt.pause(0.01)
             FigureCanvasBase(fig).flush_events()
-            # print(fig.canvas.manager)
-            # print(FigureCanvasBase.events)
-            # print(interactOff)
-        # print(plt.get_fignums())
 
-        showing = False
         plt.ioff()
-        # plt.switch_backend('Agg')
-        # remake plot?
+        matplotInteract = False
+
+        # remake plot because image gets messed otherwise
         fig = plt.figure(figsize=(fig_width, fig_height), dpi=100)
         ax = fig.add_subplot(111, projection='3d')
-
-        # add data
-        ax.scatter(x, y, z)
-
-        canvas = FigureCanvasAgg(fig)
-        canvas.draw()
-        buf = canvas.buffer_rgba()
-        matplot = np.asarray(buf)
-        matplot = matplot.astype(np.float32) / 255
+        ax.scatter(x, y, z)  # re-add data
+        matplot = convertFigToImage(fig)
     else:
-        print(showing)
         update_fake_data()  # for dynamic graph testing
         update_plot("RRRTorque", plot_t, plot_datay)  # custom function to update a plot
         update_plot("RRRVelocity", plot_t, plot_datay)  # custom function to update a plot
