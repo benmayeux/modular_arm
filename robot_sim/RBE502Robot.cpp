@@ -517,9 +517,6 @@ void RBE502Robot::feedbackLinearization(float* Kp, float* Kd, int16_t* desiredPo
     u[1] = v[2]*(m3*L3M*L3M + L2*m3*sin(curPos[2])*L3M + I3) + v[1]*(m3*L2*L2 + 2*m3*sin(curPos[2])*L2*L3M + m2*L2M*L3M + m3*L3M*L3M + I2 + I3) + L3M*g*m3*cos(curPos[1] + curPos[2]) - L2*g*m3*sin(curPos[1]) - L2M*g*m2*sin(curPos[1]) - (L2*L2*m3*curVel[0]*curVel[0]*sin(2*curPos[1]))/2 - (L2M*L2M*m2*curVel[0]*curVel[0]*sin(2*curPos[1]))/2 + (L3M*L3M*m3*curVel[0]*curVel[0]*sin(2*curPos[1] + 2*curPos[2]))/2 + L2*L3M*m3*curVel[0]*curVel[0]*cos(2*curPos[1] + curPos[2]) + L2*L3M*m3*curVel[2]*cos(curPos[2])*(2*curVel[1] + curVel[2]);
     u[2] = I3*v[1] + I3*v[2] + L3M*L3M*m3*v[1] + L3M*L3M*m3*v[2] + L3M*g*m3*cos(curPos[1] + curPos[2]) + (L3M*L3M*m3*curVel[0]*curVel[0]*sin(2*curPos[1] + 2*curPos[2]))/2 - (L2*L3M*m3*curVel[0]*curVel[0]*cos(curPos[2]))/2 - L2*L3M*m3*curVel[1]*curVel[1]*cos(curPos[2]) + (L2*L3M*m3*curVel[0]*curVel[0]*cos(2*curPos[1] + curPos[2]))/2 + L2*L3M*m3*v[1]*sin(curPos[2]);
 
-
-
-
     Serial.print(u[0]);
     Serial.print('\t');
     Serial.print(u[1]);

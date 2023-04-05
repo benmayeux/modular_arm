@@ -11,16 +11,16 @@ def main():
     print(pybullet_data.getDataPath())
     p.setGravity(0,0,-9.81)
     p.resetDebugVisualizerCamera( cameraDistance=2, cameraYaw=140, cameraPitch=-40, cameraTargetPosition=[0,0,0])
+    p.setTimeStep(1./240.)
     planeId = p.loadURDF("plane.urdf")
     startPos = [0,0,.5]
     startOrientation = p.getQuaternionFromEuler([0,0,0])
     robotID = p.loadURDF(r"C:\Users\salva\Documents\WPI\Modular Arm\threeSerial.URDF",startPos, startOrientation,useFixedBase=1)
-    mode = p.setJointMotorControlArray(robotID, [0],
-        controlMode=p.VELOCITY_CONTROL, forces=[0])
+    mode = p.setJointMotorControlArray(robotID, [0],controlMode=p.VELOCITY_CONTROL, forces=[0])
     #set the center of mass frame (loadURDF sets base link frame) startPos/Ornp.resetBasePositionAndOrientation(boxId, startPos, startOrientation)
     currT = 0
     Kd = .15
-    Kp = 2
+    Kp = 7
     targetLog = []
     thetaLog = []
     while currT<5.1:
@@ -36,16 +36,15 @@ def main():
         targetLog.append(desiredThetas[0,0])
         thetaLog.append(robotPos[0])
 
-        p.stepSimulation()
-
         if round(currT%.1,2)==0: 
             print("Time: ",round(currT,2))
             print("JointPos: ",robotPos[0])
             print("Joint Target: ",targets[0,0])
             print("Control Inputs: ",U)
 
-        time.sleep(1./240.)
+        #time.sleep(1./240.)
         currT += 1./240.
+        p.stepSimulation()
     cubePos, cubeOrn = p.getBasePositionAndOrientation(robotID)
     p.disconnect()
     return targetLog,thetaLog
@@ -99,6 +98,7 @@ def calcFeedbackLinearization(Kp,Kd,desPos,curPos,curVel,startT,currT):
     linkMass = .5
     g = 9.81
     linkI = .1
+    U = [0,0,0]
 
 
     desiredThetas = traj_evaluate(0,5,currT,[0,0,0],desPos)
@@ -108,10 +108,10 @@ def calcFeedbackLinearization(Kp,Kd,desPos,curPos,curVel,startT,currT):
 
     #Virtual Control Input
     v = err1Pos*Kp + err1VDot*Kd + desiredThetas[0,2]
-    u = v*(linkI + linkI + linkI + (linkLength*linkLength*linkMass)/2 + (linkCenter*linkCenter*linkMass)/2 + (linkCenter*linkCenter*linkMass)/2 - (linkLength*linkLength*linkMass*m.cos(2*curPos[1]))/2 - (linkCenter*linkCenter*linkMass*m.cos(2*curPos[1]))/2 + (linkCenter*linkCenter*linkMass*m.cos(2*curPos[1] + 2*curPos[2]))/2 + linkLength*linkCenter*linkMass*m.sin(curPos[2]) - linkLength*linkCenter*linkMass*m.sin(2*curPos[1] + curPos[2])) + (curVel[0]*curVel[1]*(2*linkMass*m.sin(2*curPos[1])*linkLength*linkLength - 4*linkMass*m.cos(2*curPos[1] + curPos[2])*linkLength*linkCenter + 2*linkMass*m.sin(2*curPos[1])*linkCenter*linkCenter - 2*linkMass*m.sin(2*curPos[1] + 2*curPos[2])*linkCenter*linkCenter))/2 - linkCenter*linkMass*curVel[0]*curVel[2]*(linkCenter*m.sin(2*curPos[1] + 2*curPos[2]) - linkLength*m.cos(curPos[2]) + linkLength*m.cos(2*curPos[1] + curPos[2]))
+    U[0] = v*(linkI + linkI + linkI + (linkLength*linkLength*linkMass)/2 + (linkCenter*linkCenter*linkMass)/2 + (linkCenter*linkCenter*linkMass)/2 - (linkLength*linkLength*linkMass*m.cos(2*curPos[1]))/2 - (linkCenter*linkCenter*linkMass*m.cos(2*curPos[1]))/2 + (linkCenter*linkCenter*linkMass*m.cos(2*curPos[1] + 2*curPos[2]))/2 + linkLength*linkCenter*linkMass*m.sin(curPos[2]) - linkLength*linkCenter*linkMass*m.sin(2*curPos[1] + curPos[2])) + (curVel[0]*curVel[1]*(2*linkMass*m.sin(2*curPos[1])*linkLength*linkLength - 4*linkMass*m.cos(2*curPos[1] + curPos[2])*linkLength*linkCenter + 2*linkMass*m.sin(2*curPos[1])*linkCenter*linkCenter - 2*linkMass*m.sin(2*curPos[1] + 2*curPos[2])*linkCenter*linkCenter))/2 - linkCenter*linkMass*curVel[0]*curVel[2]*(linkCenter*m.sin(2*curPos[1] + 2*curPos[2]) - linkLength*m.cos(curPos[2]) + linkLength*m.cos(2*curPos[1] + curPos[2]))
 
-
-    return u,desiredThetas
+    
+    return U,desiredThetas
 
 #convets omegas (w) to skew matrix (w hat)
 def omegaToSkew(omega):
@@ -153,7 +153,7 @@ if __name__ == '__main__':
     print(T03)
     targetLog,thetaLog = main()
 
-    fig = plt.figure()
+
     fig, ax = plt.subplots()
     ax.plot(targetLog,label='target')
     ax.plot(thetaLog,label='actual')
