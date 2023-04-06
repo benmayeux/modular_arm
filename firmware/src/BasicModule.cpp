@@ -13,6 +13,7 @@
 #include <BasicModule.h>
 #include <TalonSR.h>
 
+
 /*
     Constructor for BasicModule Object.
     @param uint8_t PWMPin           : The GPIO Pin to use for PWM control of motor controller 
@@ -26,6 +27,46 @@ BasicModule::BasicModule(uint8_t PWMPin, uint8_t potentiometerPin, uint8_t mount
 }
 
 
+
+float BasicModule::fetchData(CommandType command) {
+    command = (CommandType)(command & CommandType::RETURN_MASK);
+    switch(command) {
+        case CommandType::RETURN_POSITION:
+            return this->getPosition();
+        case CommandType::RETURN_EFFORT:
+            return this->getEffort();
+        case CommandType::RETURN_VELOCITY:
+            return this->getVelocity();
+        default:
+            return this->getPosition();
+            break;
+    }
+}
+
+Configuration BasicModule::getConfiguration() {
+        getPosition();
+        Configuration c = Configuration();
+        c.address = this->dataBus.address;
+        c.length = 0x10;
+        c.orientation = 0x01;
+        return c;
+}
+
+void BasicModule::processCommand(Command c) {
+    switch(c.command) {
+        case CommandType::EFFORT_WRITE:
+            this->mode = MODE_EFFORT;
+            this->setEffort(c.data);
+            break;
+        case CommandType::POSITION_WRITE:
+            this->mode = MODE_POSITION;
+            this->setPosition(c.data);
+            break;
+        default:
+            break;
+    }
+}
+
 /*
     The general state machine to be run in a loop to allow for functionality of the Module.
 */
@@ -36,8 +77,7 @@ void BasicModule::stateMachine(){
             currentVelocityCentidegrees, lastVelocityCentidegrees
             currentAccelCentidegrees
     */
-    this->updatePosVelAcc(); 
-
+   
     switch(this->getMode()){
         case MODE_EFFORT:
             this->controlLoopEffort(); 
@@ -161,10 +201,14 @@ void BasicModule::controlLoopCalibration(){
 void BasicModule::setup(){
     // Set initial mode (disabled)
         this->mode = MODE_DISABLE;
-
+        this->dataBus = UARTBus(this);
     // Pull calibration data from flash
         // Begin EEPROM
+#ifdef SIMULATION
+        EEPROM.begin();
+#else
         EEPROM.begin(4);
+#endif
 
         // Read values from flash and format into 16 bit unsigned integers
         uint16_t minPotRange = read16BitFromEEPROM(0,1);
@@ -214,7 +258,15 @@ void BasicModule::setup(){
     // TODO: Once received, interpret/add data and forward msg
 }
 
-
+void BasicModule::loop() {
+    // sense
+    this->updatePosVelAcc(); 
+    // process
+    Command command = this->dataBus.handleCommunication();
+    this->processCommand(command);
+    // act
+    this->stateMachine();
+}
 /*
     Sets desired position of the joint using built in PID controller.
     @param uint16_t positionCentidegrees : the desired position of the joint in centidegrees from center (straight)
@@ -443,7 +495,11 @@ bool BasicModule::save16BitToEEPROM(uint16_t numToSave, uint8_t mem1, uint8_t me
     uint8_t xhigh = (numToSave >> 8);
     EEPROM.write(mem1,xlow);
     EEPROM.write(mem2,xhigh);
+#ifdef SIMULATION
+    EEPROM.end();
+#else
     EEPROM.commit();
+#endif
 
     if(numToSave == read16BitFromEEPROM(mem1,mem2)){
         // Serial.println("Successfully saved 16 Bit Integer to EEPROM"); // This can be done wherever this function is callled if necessary

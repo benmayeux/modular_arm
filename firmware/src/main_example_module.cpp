@@ -1,4 +1,5 @@
-#ifdef SERVO_CONTROL
+#ifdef MAIN_EXAMPLE_MODULE
+
 #include <Arduino.h>
 #include <BasicModule.h>
 
@@ -21,7 +22,7 @@ void setup() {
 
 void loop() {
   // The main state machine for the module. This runs all of the functionality of the module
-  thisModule.stateMachine();
+  thisModule.loop();
 
 
   // Every two seconds, switch between +effort and -effort for the value defined above.
@@ -32,7 +33,7 @@ void loop() {
     lastTime = millis();
   }
 
-  // Print out some of the values: 
+  // Print out some of the values:
   // isActuatorWithinLimits() shows the allowed directions the motor is allowed to move (used to prevent traveling beyond rotational limits)
   Serial.print(thisModule.isActuatorWithinLimits());
   Serial.print('\t');

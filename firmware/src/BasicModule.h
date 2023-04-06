@@ -2,16 +2,24 @@
 #define BasicModule_h
 
 #include <Arduino.h>
+
 #include <TalonSR.h>
 #include <EEPROM.h>
+#include "UARTBusDataDelegate.h"
+#include "UARTBus.h"
 
-class BasicModule{
+
+class BasicModule: public UARTBusDataDelegate {
     public:
         BasicModule(uint8_t PWMPin, uint8_t potentiometerPin, uint8_t mountingOrientationSwitchPin);
         void setup();
+        void loop();
+        float fetchData(CommandType command);
+        Configuration getConfiguration();
+        void processCommand(Command c);
         void stateMachine();
         void setPosition(int16_t positionCentidegrees);
-        int16_t getPosition(); 
+        int16_t getPosition();
         uint16_t getRawPosition(){
             return this->rawPotentiometerVal;
         }
@@ -44,12 +52,12 @@ class BasicModule{
         // String getStatus(); // (Probably not needed, getMode can be used instead)   
         
         // The motor controller
-        TalonSR motor; 
+        TalonSR motor;
 
     private:
         // Private Methods:--------------------------------------------------------------------
         void setEffortPrivate(int16_t effort);
-        void setMode(MODE mode); 
+        void setMode(MODE mode);
         void controlLoopEffort();
         void controlLoopPosition(bool Reset = false);
         void controlLoopVelocity();
@@ -57,11 +65,11 @@ class BasicModule{
         static bool save16BitToEEPROM(uint16_t numToSave, uint8_t mem1, uint8_t mem2);
         static uint16_t read16BitFromEEPROM(uint8_t mem1, uint8_t mem2);
 
-        
+
 
 
         // General data:------------------------------------------------------------------------
-        
+        UARTBus dataBus;
 
         // GPIO Pin of the motor controller
         uint8_t PWMPin;
@@ -75,7 +83,7 @@ class BasicModule{
         // Mode of the module, Initialized to MODE_DISABLE
         MODE mode = MODE_DISABLE;
         
-
+        
         // Setup/Calibration Data:---------------------------------------------------------------
         // Maximum value of the potentiometer to stay within physical range of movement, Pulled from Flash during setup()
         uint16_t maxPotentiometerRange = 3071; // Pull this from flash on startup (Defaults to 3072 if hasnt had a value yet)
