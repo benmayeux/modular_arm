@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "TalonSR.h"
 #include <Servo.h>
+#include "../../src/DebugPrint.h"
 
 /*
     Creates an instance of a TalonSR Object.
@@ -8,7 +9,7 @@
 */
 TalonSR::TalonSR(uint8_t PWMPin){
     this->motorController.attach(PWMPin);
-    Serial.println("Talon Pin attached");
+    DEBUG_PRINT("Talon Pin attached");
 }
 
 /*

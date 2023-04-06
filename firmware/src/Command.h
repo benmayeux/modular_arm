@@ -13,11 +13,12 @@ enum CommandType {
     __RESERVED_COMMAND2 = 0x06,
     __RESERVED_COMMAND3 = 0x07,
 
-    CONTROL_MASK = 0x18,
+
     // bit 3
-    WRITE_BIT = 0x08,
+
+
     // bit 4
-    ROUND_ROBIN_BIT = 0x10,
+    CAROUSEL = 0x10,
 
     // bit 5-6
     RETURN_MASK = 0x60,
@@ -30,17 +31,23 @@ enum CommandType {
     // full commands
     POSITION_READ = POSITION,
     EFFORT_READ = EFFORT,
-    CONFIGURE = CONFIGURATION | WRITE_BIT | ROUND_ROBIN_BIT,
-    POSITION_WRITE = POSITION | WRITE_BIT,
-    RR_POSITION_WRITE = POSITION_WRITE | ROUND_ROBIN_BIT,
-    EFFORT_WRITE = EFFORT | WRITE_BIT,
-    RR_EFFORT_WRITE = EFFORT | WRITE_BIT | ROUND_ROBIN_BIT,
+    CONFIGURE = CONFIGURATION | CAROUSEL,
+    POSITION_WRITE = POSITION,
+    POSITION_WRITE_CAROUSEL = POSITION_WRITE | CAROUSEL,
+    EFFORT_WRITE = EFFORT,
+    EFFORT_WRITE_CAROUSEL = EFFORT | CAROUSEL,
 };
 
 struct Command {
     CommandType command;
     double data;
     byte address;
+    CommandType getCommandTarget() {
+        return (CommandType) (command & COMMANDTYPE_MASK);
+    }
+    bool isCarousel() {
+        return command & CAROUSEL;
+    }
 };
 
 

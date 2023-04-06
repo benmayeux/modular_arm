@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <EEPROM.h>
+#include "DebugPrint.h"
 
 /*
     Reads the 16 bit number from EEPROM with the low byte in the mem1 location 
@@ -35,10 +36,10 @@ bool save16BitToEEPROM(uint16_t numToSave, uint8_t mem1, uint8_t mem2){
     EEPROM.commit();
 
     if(numToSave == read16BitFromEEPROM(mem1,mem2)){
-        // Serial.println("Successfully saved 16 Bit Integer to EEPROM"); // This can be done wherever this function is callled if necessary
+        // DEBUG_PRINT("Successfully saved 16 Bit Integer to EEPROM"); // This can be done wherever this function is callled if necessary
         return true;
     }else{
-        Serial.println("Failed to save 16 Bit Integer to EEPROM");
+        DEBUG_PRINT("Failed to save 16 Bit Integer to EEPROM");
         return false;
     }
 

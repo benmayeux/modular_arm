@@ -4,7 +4,9 @@
 #include <Arduino.h>
 
 #include <TalonSR.h>
+
 #include <EEPROM.h>
+
 #include "UARTBusDataDelegate.h"
 #include "UARTBus.h"
 

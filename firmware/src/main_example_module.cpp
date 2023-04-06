@@ -35,16 +35,16 @@ void loop() {
 
   // Print out some of the values:
   // isActuatorWithinLimits() shows the allowed directions the motor is allowed to move (used to prevent traveling beyond rotational limits)
-  Serial.print(thisModule.isActuatorWithinLimits());
-  Serial.print('\t');
+  DEBUG_PRINT(thisModule.isActuatorWithinLimits());
+  DEBUG_PRINT('\t');
 
   // getEffort() gets the effort that is currently being sent to the motor. Note that even if the effort is being set in code, this will be zero if the motor isnt allowed to move in the desired direction
-  Serial.print(thisModule.getEffort());
-  Serial.print('\t');
+  DEBUG_PRINT(thisModule.getEffort());
+  DEBUG_PRINT('\t');
 
   // getRawPosition() gets the raw potentiometer reading from 0 to 4095. In the code, this is used to map to the current angle of the module.
-  Serial.print(thisModule.getRawPosition());
-  Serial.println('\t');
+  DEBUG_PRINT(thisModule.getRawPosition());
+  DEBUG_PRINT('\t');
 
 }
 #endif

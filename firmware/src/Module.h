@@ -38,7 +38,6 @@ class Module: public UARTBusDataDelegate {
                 return velocity;
             default:
                 return position;
-            
         }
     }
 
@@ -53,7 +52,7 @@ class Module: public UARTBusDataDelegate {
     void setup()
     {
         Serial.begin(9600);
-        bus = UARTBus(this);
+        bus = UARTBus(this, 1);
     }
 
     // Update relevant member data, set mode, forward info
