@@ -200,7 +200,7 @@ void BasicModule::setup(){
             }
         }
         this->maxPotentiometerRange = maxPotRange;
-        
+
     // Determine and set the orientation flag
     // Confirm that you can digitalRead in the setup loop
         pinMode(this->mountingOrientationSwitchPin, INPUT_PULLUP);
@@ -215,7 +215,7 @@ void BasicModule::setup(){
 }
 
 
-/*  
+/*
     Sets desired position of the joint using built in PID controller.
     @param uint16_t positionCentidegrees : the desired position of the joint in centidegrees from center (straight)
 */
@@ -235,7 +235,7 @@ void BasicModule::setPosition(int16_t positionCentidegrees){
 */
 int16_t BasicModule::getPosition(){
     return this->currentPositionCentidegrees;
-} 
+}
 
 
 /*

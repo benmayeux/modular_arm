@@ -1,3 +1,4 @@
+#ifdef SERVO_CONTROL
 #include <Arduino.h>
 #include <BasicModule.h>
 
@@ -13,7 +14,7 @@ int16_t effort = 127;
 void setup() {
   Serial.begin(9600);
   delay(100);
-  
+
   // Run the module setup (reads calibration data from EEPROM, determines mounting orientation, waits for communication from base module)
   thisModule.setup();
 }
@@ -45,3 +46,4 @@ void loop() {
   Serial.println('\t');
 
 }
+#endif
