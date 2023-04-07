@@ -5,5 +5,5 @@
   #define DEBUG_FUNC CONCAT(Serial,DEBUG_PORT)
   #define DEBUG_PRINT(x) DEBUG_FUNC.println(x)
 #else
-  #define DEBUG_PRINT(x)
+  #define DEBUG_PRINT(x) x
 #endif

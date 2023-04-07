@@ -23,7 +23,6 @@ void loop() {
   // The main state machine for the module. This runs all of the functionality of the module
   thisModule.loop();
 
-
   // Every two seconds, switch between +effort and -effort for the value defined above.
   if(millis() - lastTime > 3000){
     effort = -effort;

@@ -64,7 +64,6 @@ Configuration BasicModule::getConfiguration() {
 }
 
 void BasicModule::processCommand(Command c) {
-    DEBUG_PRINT("processing: " + (String)c.command);
     switch(c.getCommandTarget()) {
         case CommandType::EFFORT:
             DEBUG_PRINT("setting effort to " + (String)c.data);

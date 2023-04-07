@@ -55,9 +55,9 @@ class Base {
       command.data = nJoints;
       bus.sendCommand(command);
       double data = 1.337;
-      bus.sendData((byte *)&data, sizeof(data));
+      bus.sendData(data);
       DEBUG_PRINT(bus.receiveCommand().command);
-      DEBUG_PRINT((String)bus.receivefloat());
+      DEBUG_PRINT("received back: " + (String)bus.receiveData<float>());
 
       DEBUG_PRINT("sending effort 200.0");
       command = Command();
@@ -67,7 +67,7 @@ class Base {
       bus.sendCommand(command);
       command = bus.receiveCommand();
 
-      DEBUG_PRINT(command.data);
+      DEBUG_PRINT("received back: " + (String)command.data);
 
       delay(100);
     }
