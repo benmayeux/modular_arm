@@ -6,6 +6,7 @@ from math import sin, cos
 from matplotlib import pyplot as plt
 from matplotlib.backend_bases import FigureCanvasBase
 from matplotlib.backends.backend_agg import FigureCanvasAgg
+from commandSender import commandSender
 
 frames = 0  # keeps track of the number of frames
 modules = 1  # keeps track of previous amount of modules for button deletion
@@ -13,6 +14,13 @@ modules = 1  # keeps track of previous amount of modules for button deletion
 matplotInteract = False  # for rendering the interactive matplot
 
 dpg.create_context()  # important line needed at the beginning of every dpg script
+
+commsOpen = False
+try:
+    cs = commandSender(3)  # initialize serial command sender by COM port
+    commsOpen = True
+except:
+    print("No comms")
 
 """Testing stuff"""
 filename = 'text'  # for testing updating custom window
@@ -71,6 +79,29 @@ def update_fake_data():  # to create dynamic fake data, called in running loop
     plot_datay.append(cos(3 * 3.14 * plot_t[-1] / 180))
 
 
+def update_serial_data():
+    cs.arduino.flushInput()
+    torque_value = None
+
+    while torque_value is None:
+        line = cs.arduino.readline().decode().strip()
+        # Extract data from the line
+        if line.startswith("First value:"):
+            first_value = int(line.split(":")[1].strip())
+            print(first_value)
+        elif line.startswith("Second value:"):
+            second_value = int(line.split(":")[1].strip())
+            print(second_value)
+        elif line.startswith("Torque:"):
+            torque_value = float(line.split(":")[1].strip())
+
+    if len(plot_t) > 200:
+        plot_t.pop(0)
+        plot_datay.pop(0)
+    plot_t.append(plot_t[-1] + 0.5)
+    plot_datay.append(torque_value)
+
+
 """Helper Functions"""
 
 
@@ -127,8 +158,12 @@ def addPlot(name, x_name, y_name, x_data, y_data):
 
 def save_callback(sender, app_data, user_data):  # example function for obtaining data from widget
     """TODO: Replace with serial communication"""
-    print(user_data)
-    print(dpg.get_value(user_data))
+    #print(user_data)
+    #print(dpg.get_value(user_data))
+    x = user_data + "," + str(dpg.get_value(user_data))
+    print(bytes(x, 'utf-8'))
+    if commsOpen:
+        cs.write(user_data)  # verify this works?
 
 
 def window_change(sender, app_data, user_data):  # callback for changing windows
@@ -259,6 +294,11 @@ while dpg.is_dearpygui_running():  # this starts the runtime loop
     # you can manually stop by using stop_dearpygui()
     # print("this will run every frame")
 
+    # global comData
+    # if commsOpen:
+    #     comData = cs.read()
+    #     print(comData)
+
     if matplotInteract:  # to stop rendering dearpygui for matplot lib
 
         plt.ion()
@@ -276,10 +316,15 @@ while dpg.is_dearpygui_running():  # this starts the runtime loop
         ax.scatter(x, y, z)  # re-add data
         matplot = convertFigToImage(fig)
     else:
-        update_fake_data()  # for dynamic graph testing
+        if commsOpen:
+            update_serial_data()  # for serial reading testing
+        else:
+            update_fake_data()  # for dynamic graph testing
         update_plot("RRRTorque", plot_t, plot_datay)  # custom function to update a plot
         update_plot("RRRVelocity", plot_t, plot_datay)  # custom function to update a plot
         frames += 1  # keeping track of frames
         dpg.render_dearpygui_frame()  # render the frame
 
+if commsOpen:
+    cs.close()  # close serial com
 dpg.destroy_context()  # kill everything on exit
