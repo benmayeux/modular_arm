@@ -6,6 +6,7 @@ from math import sin, cos
 from matplotlib import pyplot as plt
 from matplotlib.backend_bases import FigureCanvasBase
 from matplotlib.backends.backend_agg import FigureCanvasAgg
+from commandSender import commandSender
 
 frames = 0  # keeps track of the number of frames
 modules = 1  # keeps track of previous amount of modules for button deletion
@@ -13,6 +14,13 @@ modules = 1  # keeps track of previous amount of modules for button deletion
 matplotInteract = False  # for rendering the interactive matplot
 
 dpg.create_context()  # important line needed at the beginning of every dpg script
+
+commsOpen = False
+try:
+    cs = commandSender(11)  # initialize serial command sender by COM port
+    commsOpen = True
+except:
+    print("No comms")
 
 """Testing stuff"""
 filename = 'text'  # for testing updating custom window
@@ -127,8 +135,12 @@ def addPlot(name, x_name, y_name, x_data, y_data):
 
 def save_callback(sender, app_data, user_data):  # example function for obtaining data from widget
     """TODO: Replace with serial communication"""
-    print(user_data)
-    print(dpg.get_value(user_data))
+    #print(user_data)
+    #print(dpg.get_value(user_data))
+    x = user_data + "," + str(dpg.get_value(user_data))
+    print(bytes(x, 'utf-8'))
+    if commsOpen:
+        cs.write(user_data)  # verify this works?
 
 
 def window_change(sender, app_data, user_data):  # callback for changing windows
@@ -258,6 +270,9 @@ while dpg.is_dearpygui_running():  # this starts the runtime loop
     # insert here any code you would like to run in the render loop
     # you can manually stop by using stop_dearpygui()
     # print("this will run every frame")
+    global comData
+    if commsOpen:
+        comData = cs.read()
 
     if matplotInteract:  # to stop rendering dearpygui for matplot lib
 
@@ -282,4 +297,6 @@ while dpg.is_dearpygui_running():  # this starts the runtime loop
         frames += 1  # keeping track of frames
         dpg.render_dearpygui_frame()  # render the frame
 
+if commsOpen:
+    cs.close()  # close serial com
 dpg.destroy_context()  # kill everything on exit
