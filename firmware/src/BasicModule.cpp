@@ -12,6 +12,16 @@
 #include <Arduino.h>
 #include <BasicModule.h>
 #include <TalonSR.h>
+#include "DebugPrint.h"
+
+/*
+ * Turn A into a string literal without expanding macro definitions
+ * (however, if invoked from a macro, macro arguments are expanded).
+ */
+
+
+
+
 
 /*
     Constructor for BasicModule Object.
@@ -26,6 +36,50 @@ BasicModule::BasicModule(uint8_t PWMPin, uint8_t potentiometerPin, uint8_t mount
 }
 
 
+
+float BasicModule::fetchData(CommandType command) {
+
+    command = (CommandType)(command & CommandType::RETURN_MASK);
+
+    switch(command) {
+        case CommandType::RETURN_POSITION:
+            return this->getPosition();
+        case CommandType::RETURN_EFFORT:
+            return this->getEffort();
+        case CommandType::RETURN_VELOCITY:
+            return this->getVelocity();
+        default:
+            return this->getPosition();
+            break;
+    }
+}
+
+// TODO: get actual values from EEPROM?
+Configuration BasicModule::getConfiguration() {
+        Configuration c = Configuration();
+        c.address = this->dataBus.address;
+        c.length = 0x10;
+        c.orientation = 0x01;
+        return c;
+}
+
+void BasicModule::processCommand(Command c) {
+    switch(c.getCommandTarget()) {
+        case CommandType::EFFORT:
+            DEBUG_PRINT("setting effort to " + (String)c.data);
+            this->mode = MODE_EFFORT;
+            this->setEffort(c.data);
+            break;
+        case CommandType::POSITION:
+            DEBUG_PRINT("setting pos to " + (String)c.data);
+            this->mode = MODE_POSITION;
+            this->setPosition(c.data);
+            break;
+        default:
+            break;
+    }
+}
+
 /*
     The general state machine to be run in a loop to allow for functionality of the Module.
 */
@@ -36,8 +90,7 @@ void BasicModule::stateMachine(){
             currentVelocityCentidegrees, lastVelocityCentidegrees
             currentAccelCentidegrees
     */
-    this->updatePosVelAcc(); 
-
+   
     switch(this->getMode()){
         case MODE_EFFORT:
             this->controlLoopEffort(); 
@@ -81,10 +134,10 @@ void BasicModule::controlLoopEffort(){
 */
 void BasicModule::controlLoopPosition(bool Reset){  
     float Err = (this->desiredPositionCentidegrees - this->currentPositionCentidegrees)/100; // Error in Degrees to keep P, I, D values in reasonable range
-    // Serial.print("Err: ");
-    // Serial.println(Err);
-    // Serial.print("Kp");
-    // Serial.println(this->posKp);
+    // DEBUG_PRINT("Err: ");
+    // DEBUG_PRINT(Err);
+    // DEBUG_PRINT("Kp");
+    // DEBUG_PRINT(this->posKp);
 
     static float lastErr = 0; // Hold last value for I calculations
     float P = Err * this->posKp; // Calculate P term
@@ -161,42 +214,46 @@ void BasicModule::controlLoopCalibration(){
 void BasicModule::setup(){
     // Set initial mode (disabled)
         this->mode = MODE_DISABLE;
-
+        this->dataBus = UARTBus(this, 1);
     // Pull calibration data from flash
         // Begin EEPROM
+#ifdef SIMULATION
+        EEPROM.begin();
+#else
         EEPROM.begin(4);
+#endif
 
         // Read values from flash and format into 16 bit unsigned integers
         uint16_t minPotRange = read16BitFromEEPROM(0,1);
         uint16_t maxPotRange = read16BitFromEEPROM(2,3);
 
         // Check that the minPotRange is reasonable, and update in EEPROM to default value if it is not reasonable
-        Serial.print("minPotRange read from flash: ");
-        Serial.println(minPotRange);
+        DEBUG_PRINT("minPotRange read from flash: ");
+        DEBUG_PRINT(minPotRange);
         if(minPotRange > 2048){// Check that value is reasonable (MUST be less than 2048). If it is not, update to default
             minPotRange = 1024; // default is from 1/4 of rotation to 3/4 of rotation of potentiometer
-            Serial.print("Updated minPotRange to: ");
-            Serial.println(minPotRange);
+            DEBUG_PRINT("Updated minPotRange to: ");
+            DEBUG_PRINT(minPotRange);
 
             if(save16BitToEEPROM(minPotRange,0,1)){ // Save the default value to EEPROM
-                Serial.println("minPotRange saved to EEPROM");
+                DEBUG_PRINT("minPotRange saved to EEPROM");
             }else{
-                Serial.println("minPotRange FAILED to save to EEPROM");
+                DEBUG_PRINT("minPotRange FAILED to save to EEPROM");
             }
         }
         this->minPotentiometerRange = minPotRange;
 
-        Serial.print("maxPotRange read from flash: ");
-        Serial.println(maxPotRange);
+        DEBUG_PRINT("maxPotRange read from flash: ");
+        DEBUG_PRINT(maxPotRange);
         if(maxPotRange >= 4095 or maxPotRange <= 2048){// If the value hasnt been saved yet, or was saved/read incorrect, or is well below a reasonable value, set it to default
             maxPotRange = 3072; // default is from 1/4 of rotation to 3/4 of rotation
-            Serial.print("Updated maxPotRange to: ");
-            Serial.println(maxPotRange);
+            DEBUG_PRINT("Updated maxPotRange to: ");
+            DEBUG_PRINT(maxPotRange);
 
             if(save16BitToEEPROM(maxPotRange,2,3)){
-                Serial.println("maxPotRange saved to EEPROM");
+                DEBUG_PRINT("maxPotRange saved to EEPROM");
             }else{
-                Serial.println("maxPotRange FAILED to save to EEPROM");
+                DEBUG_PRINT("maxPotRange FAILED to save to EEPROM");
             }
         }
         this->maxPotentiometerRange = maxPotRange;
@@ -214,7 +271,15 @@ void BasicModule::setup(){
     // TODO: Once received, interpret/add data and forward msg
 }
 
-
+void BasicModule::loop() {
+    // sense
+    this->updatePosVelAcc(); 
+    // process
+    Command command = this->dataBus.handleCommunication();
+    this->processCommand(command);
+    // act
+    this->stateMachine();
+}
 /*
     Sets desired position of the joint using built in PID controller.
     @param uint16_t positionCentidegrees : the desired position of the joint in centidegrees from center (straight)
@@ -443,13 +508,17 @@ bool BasicModule::save16BitToEEPROM(uint16_t numToSave, uint8_t mem1, uint8_t me
     uint8_t xhigh = (numToSave >> 8);
     EEPROM.write(mem1,xlow);
     EEPROM.write(mem2,xhigh);
+#ifdef SIMULATION
+    EEPROM.end();
+#else
     EEPROM.commit();
+#endif
 
     if(numToSave == read16BitFromEEPROM(mem1,mem2)){
-        // Serial.println("Successfully saved 16 Bit Integer to EEPROM"); // This can be done wherever this function is callled if necessary
+        // DEBUG_PRINT("Successfully saved 16 Bit Integer to EEPROM"); // This can be done wherever this function is callled if necessary
         return true;
     }else{
-        Serial.println("Failed to save 16 Bit Integer to EEPROM");
+        DEBUG_PRINT("Failed to save 16 Bit Integer to EEPROM");
         return false;
     }
 

@@ -1,4 +1,4 @@
-#ifdef ARM_BASE
+#ifdef MAIN_BASE
 #pragma GCC optimize ("-O0")
 #pragma GCC push_options
 

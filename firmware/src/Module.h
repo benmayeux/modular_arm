@@ -5,16 +5,19 @@
 #include "UARTBus.h"
 #include "UARTBusDataDelegate.h"
 
+
+
+
 class Module: public UARTBusDataDelegate {
   public:
 
     enum Mode {
-        TORQUE,
+        EFFORT,
         POSITION
     };
    
-    float torque;
-    float torqueSetPoint;
+    float effort;
+    float effortSetPoint;
     float position;
     float positionSetPoint;
     float velocity;
@@ -29,13 +32,12 @@ class Module: public UARTBusDataDelegate {
         switch(command) {
             case CommandType::RETURN_POSITION:
                 return position;
-            case CommandType::RETURN_TORQUE:
-                return torque;
+            case CommandType::RETURN_EFFORT:
+                return effort;
             case CommandType::RETURN_VELOCITY:
                 return velocity;
             default:
                 return position;
-            
         }
     }
 
@@ -50,15 +52,15 @@ class Module: public UARTBusDataDelegate {
     void setup()
     {
         Serial.begin(9600);
-        bus = UARTBus(this);
+        bus = UARTBus(this, 1);
     }
 
     // Update relevant member data, set mode, forward info
     void processCommand(Command c) {
         switch(c.command) {
-        case CommandType::TORQUE_WRITE:
-            operationMode = Mode::TORQUE;
-            torqueSetPoint = c.data;
+        case CommandType::EFFORT_WRITE:
+            operationMode = Mode::EFFORT;
+            effortSetPoint = c.data;
             break;
         case CommandType::POSITION_WRITE:
             operationMode = Mode::POSITION;
@@ -75,7 +77,7 @@ class Module: public UARTBusDataDelegate {
     
     }
 
-    void handleTorqueSetpoint() {
+    void handleEffortSetpoint() {
 
     }
 
@@ -86,8 +88,8 @@ class Module: public UARTBusDataDelegate {
             case Mode::POSITION:
                 handlePositionSetpoint();
                 break;
-            case Mode::TORQUE:
-                handleTorqueSetpoint();
+            case Mode::EFFORT:
+                handleEffortSetpoint();
                 break;
         }
     }
