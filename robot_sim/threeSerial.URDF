@@ -71,8 +71,8 @@
     </link>
 
     <joint name="link_01__link_12" type="revolute">
-      <axis xyz="1 0 0"/>
-      <limit effort="1000.0" lower="-3.14" upper="3.14" velocity="0.5"/>
+      <axis xyz="-1 0 0"/>
+      <limit effort="1000.0" lower="0" upper="0" velocity="0.5"/>
       <origin rpy="0 0 0" xyz="0 0 .1375"/>
       <parent link="link_01"/>
       <child link="link_12"/>
@@ -99,7 +99,7 @@
     </link>
 
     <joint name="link_12__link_23" type="revolute">
-      <axis xyz="1 0 0"/>
+      <axis xyz="-1 0 0"/>
       <limit effort="1000.0" lower="-3.14" upper="18.14" velocity="0.5"/>
       <origin rpy="0 0 0" xyz="0 0 .15"/>
       <parent link="link_12"/>
