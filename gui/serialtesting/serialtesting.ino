@@ -23,4 +23,11 @@ void loop() {
       stringIndex++; // increment the index
     }
   }
+
+  // Testing reading from the arduino
+  int value = random(10); // Generate a random value between 0 and 10
+
+  // Send the random value through serial communication
+  Serial.print("Torque: ");
+  Serial.println(value);
 }

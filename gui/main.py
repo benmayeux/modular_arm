@@ -17,7 +17,7 @@ dpg.create_context()  # important line needed at the beginning of every dpg scri
 
 commsOpen = False
 try:
-    cs = commandSender(11)  # initialize serial command sender by COM port
+    cs = commandSender(3)  # initialize serial command sender by COM port
     commsOpen = True
 except:
     print("No comms")
@@ -77,6 +77,29 @@ def update_fake_data():  # to create dynamic fake data, called in running loop
         plot_datay.pop(0)
     plot_t.append(plot_t[-1] + 0.5)
     plot_datay.append(cos(3 * 3.14 * plot_t[-1] / 180))
+
+
+def update_serial_data():
+    cs.arduino.flushInput()
+    torque_value = None
+
+    while torque_value is None:
+        line = cs.arduino.readline().decode().strip()
+        # Extract data from the line
+        if line.startswith("First value:"):
+            first_value = int(line.split(":")[1].strip())
+            print(first_value)
+        elif line.startswith("Second value:"):
+            second_value = int(line.split(":")[1].strip())
+            print(second_value)
+        elif line.startswith("Torque:"):
+            torque_value = float(line.split(":")[1].strip())
+
+    if len(plot_t) > 200:
+        plot_t.pop(0)
+        plot_datay.pop(0)
+    plot_t.append(plot_t[-1] + 0.5)
+    plot_datay.append(torque_value)
 
 
 """Helper Functions"""
@@ -270,9 +293,11 @@ while dpg.is_dearpygui_running():  # this starts the runtime loop
     # insert here any code you would like to run in the render loop
     # you can manually stop by using stop_dearpygui()
     # print("this will run every frame")
-    global comData
-    if commsOpen:
-        comData = cs.read()
+
+    # global comData
+    # if commsOpen:
+    #     comData = cs.read()
+    #     print(comData)
 
     if matplotInteract:  # to stop rendering dearpygui for matplot lib
 
@@ -291,7 +316,10 @@ while dpg.is_dearpygui_running():  # this starts the runtime loop
         ax.scatter(x, y, z)  # re-add data
         matplot = convertFigToImage(fig)
     else:
-        update_fake_data()  # for dynamic graph testing
+        if commsOpen:
+            update_serial_data()  # for serial reading testing
+        else:
+            update_fake_data()  # for dynamic graph testing
         update_plot("RRRTorque", plot_t, plot_datay)  # custom function to update a plot
         update_plot("RRRVelocity", plot_t, plot_datay)  # custom function to update a plot
         frames += 1  # keeping track of frames
