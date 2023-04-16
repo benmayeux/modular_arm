@@ -17,8 +17,9 @@ dpg.create_context()  # important line needed at the beginning of every dpg scri
 
 commsOpen = False
 try:
-    cs = commandSender(3)  # initialize serial command sender by COM port
+    cs = commandSender(4)  # initialize serial command sender by COM port
     commsOpen = True
+    print("Serial connected!")
 except:
     print("No comms")
 
@@ -78,31 +79,56 @@ def update_fake_data():  # to create dynamic fake data, called in running loop
     plot_t.append(plot_t[-1] + 0.5)
     plot_datay.append(cos(3 * 3.14 * plot_t[-1] / 180))
 
-
 def update_serial_data():
-    cs.arduino.flushInput()
     torque_value = None
 
-    while torque_value is None:
-        line = cs.arduino.readline().decode().strip()
-        # Extract data from the line
-        if line.startswith("First value:"):
-            first_value = int(line.split(":")[1].strip())
-            print(first_value)
-        elif line.startswith("Second value:"):
-            second_value = int(line.split(":")[1].strip())
-            print(second_value)
-        elif line.startswith("Torque:"):
-            torque_value = float(line.split(":")[1].strip())
+    try:
 
-    if len(plot_t) > 200:
-        plot_t.pop(0)
-        plot_datay.pop(0)
-    plot_t.append(plot_t[-1] + 0.5)
-    plot_datay.append(torque_value)
+        lines = cs.arduino.read_all().decode('utf-8').strip().split('\n')
+
+        for line in lines:
+            if line.startswith("Received new command:"):
+                name = str(line.split(":")[1].strip())
+                print("Serial received the Command: " + name)
+            elif line.startswith("Values of:"):
+                values = line.split(":")[1].strip()
+                print("Serial received the Values: " + values)
+            elif line.startswith("Torque:"):
+                torque_value = float(line.split(":")[1].strip())
+            # else:
+            #     if line != "":
+            #         print(line)
+    except:
+        #print("decode error")
+        return
+
+    if torque_value is not None:
+        if len(plot_t) > 200:
+            plot_t.pop(0)
+            plot_datay.pop(0)
+        plot_t.append(plot_t[-1] + 0.5)
+        plot_datay.append(torque_value)
 
 
 """Helper Functions"""
+
+def warningBox(title, message):
+
+    # guarantee these commands happen in the same frame
+    with dpg.mutex():
+
+        viewport_width = dpg.get_viewport_client_width()
+        viewport_height = dpg.get_viewport_client_height()
+
+        with dpg.window(label=title, modal=True, no_close=True) as modal_id:
+            dpg.add_text(message)
+            dpg.add_button(label="Ok", width=75, user_data=(modal_id, True), callback=lambda: dpg.delete_item(modal_id))
+
+    # guarantee these commands happen in another frame
+    dpg.split_frame()
+    width = dpg.get_item_width(modal_id)
+    height = dpg.get_item_height(modal_id)
+    dpg.set_item_pos(modal_id, [viewport_width // 2 - width // 2, viewport_height // 2 - height // 2])
 
 
 def addMenubar():  # makes the menu bar, such that it's consistent across windows
@@ -117,10 +143,10 @@ def addJointControlInput(config_name, n_modules):
     with dpg.collapsing_header(label="Joint Control", default_open=True):
         with dpg.group(width=110):
             for i in range(n_modules):
-                with dpg.group(horizontal=True):
-                    dpg.add_input_float(label="Joint " + str(i + 1), tag="joint" + str(i) + config_name,
+                with dpg.group(horizontal=True, tag="joint" + str(i) + config_name + "group"):
+                    dpg.add_input_float(label="Joint " + str(i), tag="joint" + str(i) + config_name,
                                         default_value=0, step=0.01)
-                    dpg.add_button(label="Set", callback=save_callback, user_data="joint" + str(i) + config_name)
+                    dpg.add_button(label="Set", callback=sendSerialInput, user_data=["joint" + str(i) + config_name,"setJointPos",i])
 
 
 def addTaskSpaceInput(config_name):
@@ -134,7 +160,7 @@ def addTaskSpaceInput(config_name):
                                 user_data=["task" + config_name, "y"], width=110)
             dpg.add_input_float(label="z", tag=config_name + "z", callback=update_3d_slider,
                                 user_data=["task" + config_name, "z"], width=110)
-        dpg.add_button(label="Set", callback=save_callback, user_data="task" + config_name)
+        dpg.add_button(label="Set", callback=sendSerialInput, user_data=["task" + config_name, "setTaskPos"])
 
 
 def addPlot(name, x_name, y_name, x_data, y_data):
@@ -156,14 +182,24 @@ def addPlot(name, x_name, y_name, x_data, y_data):
                                     tag=name + str(i + 1))
 
 
-def save_callback(sender, app_data, user_data):  # example function for obtaining data from widget
-    """TODO: Replace with serial communication"""
-    #print(user_data)
-    #print(dpg.get_value(user_data))
-    x = user_data + "," + str(dpg.get_value(user_data))
-    print(bytes(x, 'utf-8'))
+def sendSerialInput(sender, app_data, user_data):  # example function for obtaining data from widget
+    relatedTag = user_data[0]
+    relatedValue = dpg.get_value(relatedTag)
+
+    commandName = user_data[1]
+    if commandName == "setTaskPos":
+        # x=[0], y =[2], z=[1]
+        x = commandName + "(" + str(relatedValue[0]) + "," + str(relatedValue[2]) + "," + str(relatedValue[1]) + ")"
+    else:
+        if relatedValue > 50:
+            warningBox("Warning: Joint Limit Exceeded", "You have exceeded the joint limit, try a new value")
+            return
+        x = commandName + "(" + str(user_data[2]) + "," + str(relatedValue) + ")"
+
     if commsOpen:
-        cs.write(user_data)  # verify this works?
+        cs.write(x)
+        print("Sent:" + x)
+
 
 
 def window_change(sender, app_data, user_data):  # callback for changing windows
@@ -186,10 +222,11 @@ def update_custom():  # callback for updating custom window buttons based on the
 
     for i in range(modules):
         dpg.delete_item("cus_group" + str(i))
+
     for i in range(int(new_num_modules)):
         with dpg.group(horizontal=True, width=110, parent="cus_joints", tag="cus_group" + str(i)):
             dpg.add_input_float(label="Joint " + str(i + 1), tag="cus_joint" + str(i), default_value=0, step=0.01)
-            dpg.add_button(label="Set", callback=save_callback, user_data="cus_joint" + str(i), tag="cus_set" + str(i))
+            dpg.add_button(label="Set", callback=sendSerialInput, user_data=["cus_joint" + str(i), i], tag="cus_set" + str(i))
     modules = new_num_modules  # update modules variable
 
 
@@ -209,7 +246,7 @@ def update_3d_slider(sender, app_data, user_data):  # callback to update slider 
 
 def update_slider_inputs(sender, app_data, user_data):  # callback to update slider inputs based on 3Dslider
     # slider values = [x z y]
-    print(app_data)
+    #print(app_data)
     dpg.set_value(user_data[0], app_data[0])
     dpg.set_value(user_data[1], app_data[2])
     dpg.set_value(user_data[2], app_data[1])
@@ -256,10 +293,11 @@ with dpg.window(label="RRR", modal=False, show=False, tag="RRR_window", no_title
     addJointControlInput("RRR", 3)
     addTaskSpaceInput("RRR")
 
-    dpg.add_image("matplot")
-    with dpg.group(horizontal=True):
-        dpg.add_button(label="test", callback=updateMatPlot)
-        dpg.add_button(label="interact", callback=windowMatPlot)
+    with dpg.collapsing_header(label="Robot Simulation"):
+        dpg.add_image("matplot")
+        with dpg.group(horizontal=True):
+            dpg.add_button(label="test", callback=updateMatPlot)
+            dpg.add_button(label="interact", callback=windowMatPlot)
 
     with dpg.collapsing_header(label="Data Collection"):  # graphs
         """TODO: change data to be from serial inputs"""
@@ -317,7 +355,8 @@ while dpg.is_dearpygui_running():  # this starts the runtime loop
         matplot = convertFigToImage(fig)
     else:
         if commsOpen:
-            update_serial_data()  # for serial reading testing
+            if frames % 50 == 0:
+                update_serial_data()  # for serial reading testing
         else:
             update_fake_data()  # for dynamic graph testing
         update_plot("RRRTorque", plot_t, plot_datay)  # custom function to update a plot
