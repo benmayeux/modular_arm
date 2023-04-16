@@ -143,7 +143,7 @@ def addJointControlInput(config_name, n_modules):
     with dpg.collapsing_header(label="Joint Control", default_open=True):
         with dpg.group(width=110):
             for i in range(n_modules):
-                with dpg.group(horizontal=True, tag="joint" + str(i) + config_name + "group"):
+                with dpg.group(horizontal=True, tag="joint" + str(i) + config_name + "Group"):
                     dpg.add_input_float(label="Joint " + str(i), tag="joint" + str(i) + config_name,
                                         default_value=0, step=0.01)
                     dpg.add_button(label="Set", callback=sendSerialInput, user_data=["joint" + str(i) + config_name,"setJointPos",i])
@@ -225,8 +225,9 @@ def update_custom():  # callback for updating custom window buttons based on the
 
     for i in range(int(new_num_modules)):
         with dpg.group(horizontal=True, width=110, parent="cus_joints", tag="cus_group" + str(i)):
-            dpg.add_input_float(label="Joint " + str(i + 1), tag="cus_joint" + str(i), default_value=0, step=0.01)
-            dpg.add_button(label="Set", callback=sendSerialInput, user_data=["cus_joint" + str(i), i], tag="cus_set" + str(i))
+            dpg.add_input_float(label="Joint " + str(i), tag="cus_joint" + str(i), default_value=0, step=0.01)
+            dpg.add_button(label="Set", callback=sendSerialInput, user_data=["cus_joint" + str(i),"setJointPos",i], tag="cus_set" + str(i))
+
     modules = new_num_modules  # update modules variable
 
 
