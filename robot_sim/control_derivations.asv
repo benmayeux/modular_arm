@@ -12,8 +12,8 @@ M = [1,0,0,L2+L3;
     0,0,0,1];
 %World screw axis
 SList = [[0;0;1; 0;0;0], ...
-        [0;-1;0; L1;0;0], ...
-        [0;-1;0; L1;0;-L2;]];
+    [0;-1;0; L1;0;0], ...
+    [0;-1;0; L1;0;-L2;]];
 %%
 % *Calculate transforms wrt space*
 Tworld = myFKWorld(M,SList,thetaList);
@@ -83,10 +83,10 @@ doubleDotList = [q1doubledot;q2doubledot;q3doubledot];
 Tlagrange = vpa(simplify(D*doubleDotList + C*qdot + gravMatrix),2);
 
 symbols = [L1 L2 L3 m1 m2 m3 g Ixx1 Iyy1 Izz1 Ixx2 Iyy2 Izz2 Ixx3 Iyy3 Izz3 Lc1 Lc2 Lc3];
-inputValues = [.2 .2 .2 .5 .5 .5 9.81 .1 .1 .1 .1 .1 .1 .1 .1 .1 .1 .1 .1];
+inputValues = [.3 .3 .3 .5 .5 .5 9.81 0 0 0 0 0 0 0 0 0 .3 .3 .3];
 Tsolved = subs(Tlagrange,symbols,inputValues);
 Tsolved = simplify(Tsolved,'IgnoreAnalyticConstraints',true)
-
+Tsolved = simplifyFraction(Tsolved)
 %% Functions
 function J = calcJacobian(transform,thetaList)
 for i = 1 : size(thetaList)

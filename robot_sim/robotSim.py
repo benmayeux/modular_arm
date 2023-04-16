@@ -16,25 +16,33 @@ def main():
     startPos = [0,0,.5]
     startOrientation = p.getQuaternionFromEuler([0,0,0])
     robotID = p.loadURDF(r"C:\Users\salva\Documents\WPI\Modular Arm\threeSerial.URDF",startPos, startOrientation,useFixedBase=1)
-    mode = p.setJointMotorControlArray(robotID, [0],controlMode=p.VELOCITY_CONTROL, forces=[0])
+    mode = p.setJointMotorControlArray(robotID, [0,1,2],controlMode=p.VELOCITY_CONTROL, forces=[0,0,0])
     #set the center of mass frame (loadURDF sets base link frame) startPos/Ornp.resetBasePositionAndOrientation(boxId, startPos, startOrientation)
     currT = 0
-    Kd = .15
-    Kp = 7
+    #Gains for old EoM
+    #Kd = [.25,5,2.5]
+    #Kp = [10,15,25]
+    #Gains for new EoM - Need work
+    Kd = [.15,15,7.5]
+    Kp = [10,75,75]
+
     targetLog = []
     thetaLog = []
     while currT<5.1:
-        tPos = [1.57,.785,-1.57]
+        desiredPos = [1.57,-.785,-.785]
+        #For testing
+        targetJoint = 0
         #Get current pos and vel for all joints
         robotPos,robotVel = getJointStates(robotID)
-        U,targets = calcFeedbackLinearization(Kp,Kd,[1.57,0,0],robotPos,robotVel,0,currT)
+        U,targets = calcFeedbackLinearization(Kp,Kd,desiredPos,robotPos,robotVel,0,currT)
         
-        if currT<5: mode = p.setJointMotorControlArray(robotID, [0,1,2], controlMode=p.TORQUE_CONTROL, forces=[U,0,0])
-        else: mode = p.setJointMotorControlArray(robotID, [0], controlMode=p.VELOCITY_CONTROL, forces=[0])
+        if currT<5: mode = p.setJointMotorControlArray(robotID,[0,1,2], controlMode=p.TORQUE_CONTROL, forces=U)
+        else: mode = p.setJointMotorControlArray(robotID, [0,1,2], controlMode=p.VELOCITY_CONTROL, forces=[0,0,0])
 
-        desiredThetas = traj_evaluate(0,5,currT,[0,0,0],[1.57,0,0])
-        targetLog.append(desiredThetas[0,0])
-        thetaLog.append(robotPos[0])
+        desiredThetas = traj_evaluate(0,5,currT,[0,0,0],desiredPos)
+        #Logging
+        targetLog.append(desiredThetas[0,targetJoint])
+        thetaLog.append(robotPos[targetJoint])
 
         if round(currT%.1,2)==0: 
             print("Time: ",round(currT,2))
@@ -93,8 +101,8 @@ def traj_evaluate(t0,tf,currT,thetaStart,thetaFinal):
 
         return traj
 def calcFeedbackLinearization(Kp,Kd,desPos,curPos,curVel,startT,currT):
-    linkLength = 2
-    linkCenter = 1
+    linkLength = .2
+    linkCenter = .1
     linkMass = .5
     g = 9.81
     linkI = .1
@@ -103,13 +111,25 @@ def calcFeedbackLinearization(Kp,Kd,desPos,curPos,curVel,startT,currT):
 
     desiredThetas = traj_evaluate(0,5,currT,[0,0,0],desPos)
 
-    err1Pos = desiredThetas[0,0] - curPos[0]
-    err1VDot = desiredThetas[0,0] - curVel[0]
-
+    posError = [desiredThetas[0,0] - curPos[0], desiredThetas[0,1] - curPos[1], desiredThetas[0,2] - curPos[2]]
+    #posError = [x*-1 for x in posError]
+    velError = [desiredThetas[1,0] - curVel[0],desiredThetas[1,1] - curVel[1],desiredThetas[1,2] - curVel[2]]
+    #velError = [x*-1 for x in velError]
     #Virtual Control Input
-    v = err1Pos*Kp + err1VDot*Kd + desiredThetas[0,2]
-    U[0] = v*(linkI + linkI + linkI + (linkLength*linkLength*linkMass)/2 + (linkCenter*linkCenter*linkMass)/2 + (linkCenter*linkCenter*linkMass)/2 - (linkLength*linkLength*linkMass*m.cos(2*curPos[1]))/2 - (linkCenter*linkCenter*linkMass*m.cos(2*curPos[1]))/2 + (linkCenter*linkCenter*linkMass*m.cos(2*curPos[1] + 2*curPos[2]))/2 + linkLength*linkCenter*linkMass*m.sin(curPos[2]) - linkLength*linkCenter*linkMass*m.sin(2*curPos[1] + curPos[2])) + (curVel[0]*curVel[1]*(2*linkMass*m.sin(2*curPos[1])*linkLength*linkLength - 4*linkMass*m.cos(2*curPos[1] + curPos[2])*linkLength*linkCenter + 2*linkMass*m.sin(2*curPos[1])*linkCenter*linkCenter - 2*linkMass*m.sin(2*curPos[1] + 2*curPos[2])*linkCenter*linkCenter))/2 - linkCenter*linkMass*curVel[0]*curVel[2]*(linkCenter*m.sin(2*curPos[1] + 2*curPos[2]) - linkLength*m.cos(curPos[2]) + linkLength*m.cos(2*curPos[1] + curPos[2]))
-
+    v = [0,0,0]
+    v[0] = posError[0]*Kp[0] + velError[0]*Kd[0] + desiredThetas[0,2]
+    v[1] = posError[1]*Kp[1] + velError[1]*Kd[1] + desiredThetas[1,2]
+    v[2] = posError[2]*Kp[2] + velError[2]*Kd[2] + desiredThetas[2,2]
+    
+    #Old Feedback linearization
+    #U[0] = v[0]*(linkI + linkI + linkI + (linkLength*linkLength*linkMass)/2 + (linkCenter*linkCenter*linkMass)/2 + (linkCenter*linkCenter*linkMass)/2 - (linkLength*linkLength*linkMass*m.cos(2*curPos[1]))/2 - (linkCenter*linkCenter*linkMass*m.cos(2*curPos[1]))/2 + (linkCenter*linkCenter*linkMass*m.cos(2*curPos[1] + 2*curPos[2]))/2 + linkLength*linkCenter*linkMass*m.sin(curPos[2]) - linkLength*linkCenter*linkMass*m.sin(2*curPos[1] + curPos[2])) + (curVel[0]*curVel[1]*(2*linkMass*m.sin(2*curPos[1])*linkLength*linkLength - 4*linkMass*m.cos(2*curPos[1] + curPos[2])*linkLength*linkCenter + 2*linkMass*m.sin(2*curPos[1])*linkCenter*linkCenter - 2*linkMass*m.sin(2*curPos[1] + 2*curPos[2])*linkCenter*linkCenter))/2 - linkCenter*linkMass*curVel[0]*curVel[2]*(linkCenter*m.sin(2*curPos[1] + 2*curPos[2]) - linkLength*m.cos(curPos[2]) + linkLength*m.cos(2*curPos[1] + curPos[2]))
+    #U[1] = v[2]*(linkMass*linkCenter*linkCenter + linkLength*linkMass*np.sin(curPos[2])*linkCenter + linkI) + v[1]*(linkMass*linkLength*linkLength + 2*linkMass*np.sin(curPos[2])*linkLength*linkCenter + linkMass*linkCenter*linkCenter + linkMass*linkCenter*linkCenter + linkI + linkI) + linkCenter*g*linkMass*np.cos(curPos[1] + curPos[2]) - linkLength*g*linkMass*np.sin(curPos[1]) - linkCenter*g*linkMass*np.sin(curPos[1]) - (linkLength*linkLength*linkMass*curVel[0]*curVel[0]*np.sin(2*curPos[1]))/2 - (linkCenter*linkCenter*linkMass*curVel[0]*curVel[0]*np.sin(2*curPos[1]))/2 + (linkCenter*linkCenter*linkMass*curVel[0]*curVel[0]*np.sin(2*curPos[1] + 2*curPos[2]))/2 + linkLength*linkCenter*linkMass*curVel[0]*curVel[0]*np.cos(2*curPos[1] + curPos[2]) + linkLength*linkCenter*linkMass*curVel[2]*np.cos(curPos[2])*(2*curVel[1] + curVel[2]);
+    #U[2] = linkI*v[1] + linkI*v[2] + linkCenter*linkCenter*linkMass*v[1] + linkCenter*linkCenter*linkMass*v[2] + linkCenter*g*linkMass*np.cos(curPos[1] + curPos[2]) + (linkCenter*linkCenter*linkMass*curVel[0]*curVel[0]*np.sin(2*curPos[1] + 2*curPos[2]))/2 - (linkLength*linkCenter*linkMass*curVel[0]*curVel[0]*np.cos(curPos[2]))/2 - linkLength*linkCenter*linkMass*curVel[1]*curVel[1]*np.cos(curPos[2]) + (linkLength*linkCenter*linkMass*curVel[0]*curVel[0]*np.cos(2*curPos[1] + curPos[2]))/2 + linkLength*linkCenter*linkMass*v[1]*np.sin(curPos[2]);
+    
+    #Generated
+    U[0] = 0.16*v[0] + 0.03*curVel[0]**3*np.sin(curPos[2]) + 0.04*curVel[1]**3*np.sin(curPos[2]) - 0.02*curVel[2]**3*np.sin(curPos[2]) + 0.06*v[0]*np.cos(2.0*curPos[1] + curPos[2]) + 0.03*v[0]*np.cos(2*curPos[1] + 2*curPos[2]) + 0.03*v[0]*np.cos(2.0*curPos[1]) + 0.09*curVel[0]**3*np.sin(2.0*curPos[1] + curPos[2]) + 0.06*v[0]*np.cos(curPos[2]) + 0.06*curVel[0]**3*np.sin(2*curPos[1] + 2*curPos[2]) + 0.03*curVel[0]**3*np.sin(2.0*curPos[1]) - 0.12*curVel[0]*curVel[1]**2*np.sin(2.0*curPos[1] + curPos[2]) - 0.03*curVel[0]**2*curVel[1]*np.sin(2.0*curPos[1] + curPos[2]) - 0.06*curVel[0]*curVel[2]**2*np.sin(2.0*curPos[1] + curPos[2]) + 0.03*curVel[0]**2*curVel[2]*np.sin(2.0*curPos[1] + curPos[2]) - 0.06*curVel[0]*curVel[1]**2*np.sin(2*curPos[1] + 2*curPos[2]) - 0.06*curVel[0]*curVel[2]**2*np.sin(2*curPos[1] + 2*curPos[2]) - 0.06*curVel[0]*curVel[1]**2*np.sin(2.0*curPos[1]) - 0.03*curVel[0]**2*curVel[1]*np.sin(2.0*curPos[1]) + 0.03*curVel[0]**2*curVel[2]*np.sin(2.0*curPos[1]) + 0.04*curVel[0]*curVel[1]**2*np.sin(curPos[2]) + 0.03*curVel[0]**2*curVel[1]*np.sin(curPos[2]) - 0.08*curVel[0]*curVel[2]**2*np.sin(curPos[2]) - 0.03*curVel[0]**2*curVel[2]*np.sin(curPos[2]) - 0.1*curVel[1]*curVel[2]**2*np.sin(curPos[2]) - 0.04*curVel[1]**2*curVel[2]*np.sin(curPos[2]) - 0.18*curVel[0]*curVel[1]*curVel[2]*np.sin(2.0*curPos[1] + curPos[2]) - 0.12*curVel[0]*curVel[1]*curVel[2]*np.sin(2*curPos[1] + 2*curPos[2]) - 0.06*curVel[0]*curVel[1]*curVel[2]*np.sin(2.0*curPos[1]) - 0.14*curVel[0]*curVel[1]*curVel[2]*np.sin(curPos[2])
+    U[1] = 0.08*v[1] + 0.02*v[2] + 1.4715*np.cos(curPos[1]) + 0.03*curVel[0]**3*np.sin(curPos[2]) + 0.04*curVel[1]**3*np.sin(curPos[2]) - 0.02*curVel[2]**3*np.sin(curPos[2]) + 0.09*curVel[0]**3*np.sin(2.0*curPos[1] + curPos[2]) + 0.08*v[1]*np.cos(curPos[2]) + 0.02*v[2]*np.cos(curPos[2]) + 0.06*curVel[0]**3*np.sin(2*curPos[1] + 2*curPos[2]) + 0.03*curVel[0]**3*np.sin(2.0*curPos[1]) - 0.12*curVel[0]*curVel[1]**2*np.sin(2.0*curPos[1] + curPos[2]) - 0.03*curVel[0]**2*curVel[1]*np.sin(2.0*curPos[1] + curPos[2]) - 0.06*curVel[0]*curVel[2]**2*np.sin(2.0*curPos[1] + curPos[2]) + 0.03*curVel[0]**2*curVel[2]*np.sin(2.0*curPos[1] + curPos[2]) - 0.06*curVel[0]*curVel[1]**2*np.sin(2*curPos[1] + 2*curPos[2]) - 0.06*curVel[0]*curVel[2]**2*np.sin(2*curPos[1] + 2*curPos[2]) - 0.06*curVel[0]*curVel[1]**2*np.sin(2.0*curPos[1]) - 0.03*curVel[0]**2*curVel[1]*np.sin(2.0*curPos[1]) + 0.03*curVel[0]**2*curVel[2]*np.sin(2.0*curPos[1]) + 0.04*curVel[0]*curVel[1]**2*np.sin(curPos[2]) + 0.03*curVel[0]**2*curVel[1]*np.sin(curPos[2]) - 0.08*curVel[0]*curVel[2]**2*np.sin(curPos[2]) - 0.03*curVel[0]**2*curVel[2]*np.sin(curPos[2]) - 0.1*curVel[1]*curVel[2]**2*np.sin(curPos[2]) - 0.04*curVel[1]**2*curVel[2]*np.sin(curPos[2]) - 0.18*curVel[0]*curVel[1]*curVel[2]*np.sin(2.0*curPos[1] + curPos[2]) - 0.12*curVel[0]*curVel[1]*curVel[2]*np.sin(2*curPos[1] + 2*curPos[2]) - 0.06*curVel[0]*curVel[1]*curVel[2]*np.sin(2.0*curPos[1]) - 0.14*curVel[0]*curVel[1]*curVel[2]*np.sin(curPos[2])
+    U[2] = 0.02*v[1] + 0.02*v[2] + 0.4905*np.cos(curPos[2]) + 0.03*curVel[0]**3*np.sin(curPos[2]) + 0.04*curVel[1]**3*np.sin(curPos[2]) - 0.02*curVel[2]**3*np.sin(curPos[2]) + 0.09*curVel[0]**3*np.sin(2.0*curPos[1] + curPos[2]) + 0.02*v[1]*np.cos(curPos[2]) + 0.06*curVel[0]**3*np.sin(2*curPos[1] + 2*curPos[2]) + 0.03*curVel[0]**3*np.sin(2.0*curPos[1]) - 0.12*curVel[0]*curVel[1]**2*np.sin(2.0*curPos[1] + curPos[2]) - 0.03*curVel[0]**2*curVel[1]*np.sin(2.0*curPos[1] + curPos[2]) - 0.06*curVel[0]*curVel[2]**2*np.sin(2.0*curPos[1] + curPos[2]) + 0.03*curVel[0]**2*curVel[2]*np.sin(2.0*curPos[1] + curPos[2]) - 0.06*curVel[0]*curVel[1]**2*np.sin(2*curPos[1] + 2*curPos[2]) - 0.06*curVel[0]*curVel[2]**2*np.sin(2*curPos[1] + 2*curPos[2]) - 0.06*curVel[0]*curVel[1]**2*np.sin(2.0*curPos[1]) - 0.03*curVel[0]**2*curVel[1]*np.sin(2.0*curPos[1]) + 0.03*curVel[0]**2*curVel[2]*np.sin(2.0*curPos[1]) + 0.04*curVel[0]*curVel[1]**2*np.sin(curPos[2]) + 0.03*curVel[0]**2*curVel[1]*np.sin(curPos[2]) - 0.08*curVel[0]*curVel[2]**2*np.sin(curPos[2]) - 0.03*curVel[0]**2*curVel[2]*np.sin(curPos[2]) - 0.1*curVel[1]*curVel[2]**2*np.sin(curPos[2]) - 0.04*curVel[1]**2*curVel[2]*np.sin(curPos[2]) - 0.18*curVel[0]*curVel[1]*curVel[2]*np.sin(2.0*curPos[1] + curPos[2]) - 0.12*curVel[0]*curVel[1]*curVel[2]*np.sin(2*curPos[1] + 2*curPos[2]) - 0.06*curVel[0]*curVel[1]*curVel[2]*np.sin(2.0*curPos[1]) - 0.14*curVel[0]*curVel[1]*curVel[2]*np.sin(curPos[2])
     
     return U,desiredThetas
 
