@@ -7,9 +7,12 @@ from matplotlib import pyplot as plt
 from matplotlib.backend_bases import FigureCanvasBase
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from commandSender import commandSender
+import roboticstoolbox as rtb
+from RTBPyPlot import PyPlot  # copy of base library (rtb) but with changes
 
 frames = 0  # keeps track of the number of frames
-modules = 1  # keeps track of previous amount of modules for button deletion
+prevNumModules = 1  # keeps track of previous amount of modules for button deletion
+serialModules = 0  # keeps track of serial reading for modules number
 
 matplotInteract = False  # for rendering the interactive matplot
 
@@ -26,16 +29,17 @@ except:
 """Testing stuff"""
 filename = 'text'  # for testing updating custom window
 
-# matplot stuff
+# # matplot stuff
 fig_width = 4
 fig_height = 4
-fig = plt.figure(figsize=(fig_width, fig_height), dpi=100)
-ax = fig.add_subplot(111, projection='3d')
+plt.rcParams['figure.figsize'] = [fig_width, fig_height]
 x = [1, 2, 3]  # Generate some fake 3D data points
 y = [4, 5, 6]
 z = [7, 8, 9]
-ax.scatter(x, y, z)  # Add the points to the plot
-
+robot = rtb.models.DH.Panda()  # create a robot
+robot.q = robot.qz  # set the robot configuration
+# pyplot = rtb.backends.PyPlot.PyPlot()  # create a PyPlot backend
+pyplot = PyPlot()
 
 def convertFigToImage(figure):
     canvas = FigureCanvasAgg(figure)
@@ -44,8 +48,26 @@ def convertFigToImage(figure):
     plot_image = np.asarray(buf)
     return plot_image.astype(np.float32) / 255
 
+def makePyPlot():
+    # global fig_width, fig_height
+    # fig = plt.figure(figsize=(fig_width, fig_height), dpi=100)
+    # ax = fig.add_subplot(111, projection='3d')
+    # ax.scatter(x, y, z)  # Add the points to the plot
 
-matplot = convertFigToImage(fig)
+    # pyplot.fig = fig
+    # pyplot.ax = ax
+    # pyplot.limits = None
+    pyplot.launch(show=False)  # setup pyplot fig and ax, HAD TO CHANGE LIBRARY CODE TO INCLUDE SHOW OPTION
+    fig = pyplot.fig
+    ax = pyplot.ax
+
+    pyplot.add(robot, show=False)     # add the robot to the backend, HAD TO CHANGE LIBRARY CODE TO INCLUDE SHOW OPTION
+    matplot = convertFigToImage(fig)
+
+    return matplot, fig, ax
+
+matplot, fig, ax = makePyPlot()
+# matplot = convertFigToImage(fig)
 
 
 def updateMatPlot():
@@ -95,6 +117,8 @@ def update_serial_data():
                 print("Serial received the Values: " + values)
             elif line.startswith("Torque:"):
                 torque_value = float(line.split(":")[1].strip())
+            elif line.startswith("Num Modules:"):
+                modules = float(line.split(":")[1].strip())
             # else:
             #     if line != "":
             #         print(line)
@@ -199,6 +223,8 @@ def sendSerialInput(sender, app_data, user_data):  # example function for obtain
     if commsOpen:
         cs.write(x)
         print("Sent:" + x)
+    else:
+        print(relatedValue)
 
 
 
@@ -211,16 +237,17 @@ def window_change(sender, app_data, user_data):  # callback for changing windows
 
 
 def update_custom():  # callback for updating custom window buttons based on the number of modules
-    """TODO: Replace with serial communication"""
-    file = open(filename, 'r')
-    content = file.read()
-    file.close()
+    if commsOpen:
+        new_num_modules = serialModules
+    else:
+        file = open(filename, 'r')
+        content = file.read()
+        file.close()
+        new_num_modules = int(content)
 
-    global modules
-    new_num_modules = int(content)
     dpg.delete_item("starting_cus")  # remove the text that informed user what to do at start
-
-    for i in range(modules):
+    global prevNumModules
+    for i in range(prevNumModules):
         dpg.delete_item("cus_group" + str(i))
 
     for i in range(int(new_num_modules)):
@@ -228,7 +255,7 @@ def update_custom():  # callback for updating custom window buttons based on the
             dpg.add_input_float(label="Joint " + str(i), tag="cus_joint" + str(i), default_value=0, step=0.01)
             dpg.add_button(label="Set", callback=sendSerialInput, user_data=["cus_joint" + str(i),"setJointPos",i], tag="cus_set" + str(i))
 
-    modules = new_num_modules  # update modules variable
+    prevNumModules = new_num_modules  # update modules variable
 
 
 def update_3d_slider(sender, app_data, user_data):  # callback to update slider based on float_inputs
@@ -350,10 +377,7 @@ while dpg.is_dearpygui_running():  # this starts the runtime loop
         matplotInteract = False
 
         # remake plot because image gets messed otherwise
-        fig = plt.figure(figsize=(fig_width, fig_height), dpi=100)
-        ax = fig.add_subplot(111, projection='3d')
-        ax.scatter(x, y, z)  # re-add data
-        matplot = convertFigToImage(fig)
+        matplot, fig, ax = makePyPlot()
     else:
         if commsOpen:
             if frames % 50 == 0:
