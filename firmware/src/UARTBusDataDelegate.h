@@ -10,7 +10,7 @@
  */
 class UARTBusDataDelegate {
 public:
-    virtual float fetchData(CommandType command) = 0;
+    virtual int16_t fetchData(CommandType command) = 0;
     virtual Configuration getConfiguration() = 0;
 };
 

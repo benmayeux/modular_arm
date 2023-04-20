@@ -1,6 +1,6 @@
 #ifdef MAIN_BASIC_MODULE
 #include <Arduino.h>
-#include <BasicModule.h>
+#include "BasicModule.h"
 
 // Initialize the module with the correct PWM Pin, Potentiometer Pin, and Orientation Switch Pin
 BasicModule thisModule = BasicModule(14,4,23);
