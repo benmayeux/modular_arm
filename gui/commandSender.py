@@ -30,12 +30,18 @@ class commandSender():
 
 
 
+"""FOR TESTING SERIAL COMMS"""
 def main():
-    cs = commandSender(12)
+    cs = commandSender(4)
 
     while(True):
+        cs.arduino.flush()
+        cs.arduino.flushInput()
+        cs.arduino.flushOutput()
+
         command = input("Enter a command: ") # Taking input from user
-        value = cs.write_read(command)
+        cs.write(command)
+        value = cs.read()
         print(str(value, 'utf-8')) # printing the value
 
         if(command == "end"):
