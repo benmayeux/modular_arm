@@ -15,7 +15,7 @@ enum CommandType {
 
 
     // bit 3
-
+    __RESERVED_BIT = 0x08,
 
     // bit 4
     CAROUSEL = 0x10,
@@ -26,7 +26,7 @@ enum CommandType {
     RETURN_EFFORT = EFFORT << 5,
     RETURN_VELOCITY = VELOCITY << 5,
     // bit 7
-    __RESERVED = 0x80,
+    __RESERVED_BIT2 = 0x80,
 
     // full commands
     POSITION_READ = POSITION,
@@ -40,7 +40,7 @@ enum CommandType {
 
 struct Command {
     CommandType command;
-    double data;
+    int16_t data;
     byte address;
     CommandType getCommandTarget() {
         return (CommandType) (command & COMMANDTYPE_MASK);
