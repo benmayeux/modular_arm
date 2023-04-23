@@ -10,7 +10,7 @@
 
 
 #include <Arduino.h>
-#include <BasicModule.h>
+#include "BasicModule.h"
 #include <TalonSR.h>
 #include "DebugPrint.h"
 
@@ -37,7 +37,7 @@ BasicModule::BasicModule(uint8_t PWMPin, uint8_t potentiometerPin, uint8_t mount
 
 
 
-float BasicModule::fetchData(CommandType command) {
+int16_t BasicModule::fetchData(CommandType command) {
 
     command = (CommandType)(command & CommandType::RETURN_MASK);
 
@@ -214,7 +214,7 @@ void BasicModule::controlLoopCalibration(){
 void BasicModule::setup(){
     // Set initial mode (disabled)
         this->mode = MODE_DISABLE;
-        this->dataBus = UARTBus(this, 1);
+        this->dataBus = UARTBus(this, 2);
     // Pull calibration data from flash
         // Begin EEPROM
 #ifdef SIMULATION
@@ -416,7 +416,7 @@ void BasicModule::updatePosVelAcc(){
 
         // Map the raw potentiometer value to the angle of the joint using calibration data and min/max angles (angles of calibration)
         this->currentPositionCentidegrees =  map(this->rawPotentiometerVal,this->minPotentiometerRange,this->maxPotentiometerRange,this->minAngle * 100, this->maxAngle * 100);
-
+        
         // save the old velocity to the lastVelocityCentidegrees attribute
         this ->lastVelocityCentidegrees = this->currentVelocityCentidegrees;
 
