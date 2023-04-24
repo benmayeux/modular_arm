@@ -20,18 +20,18 @@ def main():
     #set the center of mass frame (loadURDF sets base link frame) startPos/Ornp.resetBasePositionAndOrientation(boxId, startPos, startOrientation)
     currT = 0
     #Gains for old EoM
-    #Kd = [.25,5,2.5]
-    #Kp = [10,15,25]
+    #Kd = [.15,8,7]
+    #Kp = [25,50,150]
     #Gains for new EoM - Need work
-    Kd = [.15,15,7.5]
-    Kp = [10,75,75]
+    Kd = [.15,25,25]
+    Kp = [15,75,75]
 
     targetLog = []
     thetaLog = []
-    while currT<5.1:
+    while currT<=5:
         desiredPos = [1.57,-.785,-.785]
         #For testing
-        targetJoint = 0
+        targetJoint = 2
         #Get current pos and vel for all joints
         robotPos,robotVel = getJointStates(robotID)
         U,targets = calcFeedbackLinearization(Kp,Kd,desiredPos,robotPos,robotVel,0,currT)
@@ -177,7 +177,7 @@ if __name__ == '__main__':
     fig, ax = plt.subplots()
     ax.plot(targetLog,label='target')
     ax.plot(thetaLog,label='actual')
-    ax.set_title("Target/Actual Angular Position over time")
+    ax.set_title("Target/Actual Angular Position over time, Joint: 2")
     ax.set_xlabel('Simulation Steps (240hz)')
     ax.set_ylabel('Angle (rads)')
     ax.legend()

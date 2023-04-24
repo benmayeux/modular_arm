@@ -1,3 +1,5 @@
+import math
+
 import dearpygui.dearpygui as dpg
 import matplotlib
 # https://dearpygui.readthedocs.io/en/latest/about/what-why.html
@@ -13,8 +15,10 @@ from RTBPyPlot import PyPlot  # copy of base library (rtb) but with changes
 frames = 0  # keeps track of the number of frames
 prevNumModules = 1  # keeps track of previous amount of modules for button deletion
 serialModules = 0  # keeps track of serial reading for modules number
+modelType = None  # keeps track of what robot model should be used
 
 matplotInteract = False  # for rendering the interactive matplot
+remakePyPlot = False  # to remake the plot inside te main thread (callbacks are separate threads)
 
 dpg.create_context()  # important line needed at the beginning of every dpg script
 
@@ -33,13 +37,38 @@ filename = 'text'  # for testing updating custom window
 fig_width = 4
 fig_height = 4
 plt.rcParams['figure.figsize'] = [fig_width, fig_height]
-x = [1, 2, 3]  # Generate some fake 3D data points
-y = [4, 5, 6]
-z = [7, 8, 9]
+# x = [1, 2, 3]  # Generate some fake 3D data points
+# y = [4, 5, 6]
+# z = [7, 8, 9]
+# robot = rtb.DHRobot([
+#     rtb.RevoluteDH(),
+#     rtb.RevoluteDH(d=0.015, alpha=math.pi / 2),
+#     rtb.RevoluteDH(a=0.015)
+# ], name="RRR")
+# robot.q = [0,0,0]
 robot = rtb.models.DH.Panda()  # create a robot
 robot.q = robot.qz  # set the robot configuration
 # pyplot = rtb.backends.PyPlot.PyPlot()  # create a PyPlot backend
 pyplot = PyPlot()
+
+def makeRobot(q):
+    # print(modelType)
+    global robot, pyplot, remakePyPlot
+    plt.close(pyplot.fig)
+    # pyplot.reset()
+    # pyplot.close()
+    # pyplot = PyPlot()
+
+    if modelType == "RRR":
+        robot = rtb.DHRobot([
+            rtb.RevoluteDH(d=0.333, alpha=math.pi/2),
+            rtb.RevoluteDH(a=0.333),
+            rtb.RevoluteDH(a=0.333)
+        ], name="RRR")
+        robot.q = q
+
+    remakePyPlot = True
+
 
 def convertFigToImage(figure):
     canvas = FigureCanvasAgg(figure)
@@ -70,23 +99,18 @@ matplot, fig, ax = makePyPlot()
 # matplot = convertFigToImage(fig)
 
 
-def updateMatPlot():
-    """TODO: Change how new x, y, and z data are obtained"""
-    x.append(np.random.random())
-    y.append(np.random.random())
-    z.append(np.random.random())
-    # print([x,y,z])
-    ax.scatter(x, y, z)
-
-    # Reset the image value with new plot
-    matplot = convertFigToImage(fig)
-
-    dpg.set_value("matplot", matplot)
-
-
-def windowMatPlot():  # to activate the interactive MatPlot
-    global matplotInteract
-    matplotInteract = True
+# def updateMatPlot():
+#     """TODO: Change how new x, y, and z data are obtained"""
+#     x.append(np.random.random())
+#     y.append(np.random.random())
+#     z.append(np.random.random())
+#     # print([x,y,z])
+#     ax.scatter(x, y, z)
+#
+#     # Reset the image value with new plot
+#     matplot = convertFigToImage(fig)
+#
+#     dpg.set_value("matplot", matplot)
 
 
 # some fake data to test dynamic plots
@@ -101,6 +125,11 @@ def update_fake_data():  # to create dynamic fake data, called in running loop
     plot_t.append(plot_t[-1] + 0.5)
     plot_datay.append(cos(3 * 3.14 * plot_t[-1] / 180))
 
+
+"""Helper Functions"""
+def windowMatPlot():  # to activate the interactive MatPlot
+    global matplotInteract
+    matplotInteract = True
 def update_serial_data():
     torque_value = None
 
@@ -132,9 +161,6 @@ def update_serial_data():
             plot_datay.pop(0)
         plot_t.append(plot_t[-1] + 0.5)
         plot_datay.append(torque_value)
-
-
-"""Helper Functions"""
 
 def warningBox(title, message):
 
@@ -223,20 +249,35 @@ def sendSerialInput(sender, app_data, user_data):  # example function for obtain
     else:
         x = ""
 
+        # update matplot for robot sim
+        currentQ = robot.q
+        #print("Old Q: " + str(currentQ))
+        currentQ[user_data[2]] = relatedValue
+        #print("New Q: " + str(currentQ))
+        makeRobot(currentQ)
+
     if commsOpen:
         cs.write(x)
-        print("Sent:" + x)
+        print("Sent Serial:" + x)
     else:
-        print(relatedValue)
+        print(x)
 
 
 
 def window_change(sender, app_data, user_data):  # callback for changing windows
     # print(f"sender is: {sender}")
     # print(f"app_data is: {user_data}")
+    newWindow = user_data[1]
     dpg.configure_item(user_data[0], show=False)
-    dpg.configure_item(user_data[1], show=True)
+    dpg.configure_item(newWindow, show=True)
     dpg.set_primary_window(user_data[1], True)
+
+    global modelType
+    if newWindow == "RRR_window":
+        modelType = "RRR"
+        print(modelType)
+        makeRobot([0,0,0])
+
 
 
 def update_custom():  # callback for updating custom window buttons based on the number of modules
@@ -327,7 +368,7 @@ with dpg.window(label="RRR", modal=False, show=False, tag="RRR_window", no_title
     with dpg.collapsing_header(label="Robot Simulation"):
         dpg.add_image("matplot")
         with dpg.group(horizontal=True):
-            dpg.add_button(label="test", callback=updateMatPlot)
+            # dpg.add_button(label="test", callback=updateMatPlot)
             dpg.add_button(label="interact", callback=windowMatPlot)
 
     with dpg.collapsing_header(label="Data Collection"):  # graphs
@@ -381,6 +422,12 @@ while dpg.is_dearpygui_running():  # this starts the runtime loop
 
         # remake plot because image gets messed otherwise
         matplot, fig, ax = makePyPlot()
+    elif remakePyPlot:
+        matplot, fig, ax = makePyPlot()
+        # pyplot.add(robot, show=False)  # add the robot to the backend, HAD TO CHANGE LIBRARY CODE TO INCLUDE SHOW OPTION
+        # matplot = convertFigToImage(fig)
+        dpg.set_value("matplot", matplot)
+        remakePyPlot = False
     else:
         if commsOpen:
             if frames % 50 == 0:

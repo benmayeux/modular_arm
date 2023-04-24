@@ -12,36 +12,23 @@ class UARTBus {
     UARTBusDataDelegate* delegate;
     int address = -1;
     HardwareSerial* serialPort;
-    int available() {
-      return serialPort->available();
-    }
+    
+    int available();
     /**
      * @brief Construct a new UARTBus object
      *
      * @param delegateIn A data delegate based on current command on the bus
      */
-    UARTBus(UARTBusDataDelegate* delegateIn, int uartPort) {
-      delegate = delegateIn;
-      switch(uartPort) {
-        case 0:
-          serialPort = &Serial;
-          break;
-        case 1:
-          serialPort = &Serial1;
-          break;
-        case 2:
-          serialPort = &Serial2;
-          break;
-        default:
-          serialPort = &Serial;
-          break;
-      }
-      serialPort->begin(115200);
-    }
+    UARTBus(UARTBusDataDelegate* delegateIn, int uartPort);
+    UARTBus();
 
-    UARTBus() {
-      UARTBus(0, 1);
-    }
+    /**
+     * @brief Sends a command on the bus
+     *
+     * @param c
+     */
+    void sendCommand(Command c);
+
 
     template <typename T> void sendData(T data) {
       serialPort->write((uint8_t*)&data, sizeof(data));
@@ -72,16 +59,7 @@ class UARTBus {
       sendData(data);
     }
 
-    /**
-     * @brief Sends a command on the bus
-     *
-     * @param c
-     */
-    void sendCommand(Command c) {
-      sendData(c);
-    }
-
-    /**
+        /**
      * @brief Consumes a raw float from the bus
      *
      * @return float
@@ -97,69 +75,21 @@ class UARTBus {
      *
      * @return Command
      */
-    Command receiveCommand() {
-      return receiveData<Command>();
-    }
+    Command receiveCommand();
 
     /**
      * @brief Consumes a Configuration object from the bus
      *
      * @return Configuration
      */
-    Configuration receiveConfiguration() {
-      return receiveData<Configuration>();
-    }
+    Configuration receiveConfiguration();
 
     /**
      * @brief Handles forwarding and data fetching. Returns any new commands to be processed
      *
      * @return Command
      */
-    Command handleCommunication() {
-      Command currentCommand = Command();
-      currentCommand.command = CommandType::NOOP;
-      while(serialPort->available()) {
-          currentCommand = receiveCommand();
-          DEBUG_PRINT("received " + (String)currentCommand.command);
-          // Don't forward
-          if (currentCommand.address == address) {
-            currentCommand = currentCommand;
-            Command forwarded = Command(currentCommand);
-            forwarded.data = delegate->fetchData(currentCommand.command);
-            sendCommand(forwarded);
-            return currentCommand;
-          }
-
-          // Configure Bus
-          if (currentCommand.command == CommandType::CONFIGURE) {
-            DEBUG_PRINT("Starting configure...");
-            address = currentCommand.address++;
-            sendCommand(currentCommand);
-            Configuration c = delegate->getConfiguration();
-            DEBUG_PRINT("forwarding");
-            forwardAndAppend(c, address);
-            currentCommand.command == CommandType::NOOP;
-            return currentCommand;
-          }
-
-          if (currentCommand.command & CAROUSEL) {
-            int size = currentCommand.data;
-            // Forward original command
-            sendCommand(currentCommand);
-
-            // Forward data
-            currentCommand.data = leftShiftBus(size, delegate->fetchData(currentCommand.command));
-            return currentCommand;
-          }
-
-          // Forward
-          sendCommand(currentCommand);
-          DEBUG_PRINT("forwarding to: " + (String)currentCommand.address);
-          currentCommand.command = CommandType::NOOP;
-          return currentCommand;
-        }
-        return currentCommand;
-    }
+    Command handleCommunication();
 };
 
 #endif

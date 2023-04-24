@@ -4,7 +4,7 @@
 
 #include "Base.h"
 
-Base b = Base();
+base::Base b = base::Base();
 void setup() {
   b.setup();
 }

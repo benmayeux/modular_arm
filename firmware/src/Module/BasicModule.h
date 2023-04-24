@@ -16,7 +16,7 @@ class BasicModule: public UARTBusDataDelegate {
         BasicModule(uint8_t PWMPin, uint8_t potentiometerPin, uint8_t mountingOrientationSwitchPin);
         void setup();
         void loop();
-        float fetchData(CommandType command);
+        int16_t fetchData(CommandType command);
         Configuration getConfiguration();
         void processCommand(Command c);
         void stateMachine();
@@ -30,8 +30,8 @@ class BasicModule: public UARTBusDataDelegate {
         }
         void setPosKpKiKd(float Kp, float Ki, float Kd);
         void setVelKpKiKd(float Kp, float Ki, float Kd);
-        void getPosKpKiKd(float* retVal); 
-        void getVelKpKiKd(float* retVal); 
+        void getPosKpKiKd(float* retVal);
+        void getVelKpKiKd(float* retVal);
         void setVelocity(int16_t velocityCentidegrees);
         int16_t getVelocity();
         void setEffort(int16_t effort);
