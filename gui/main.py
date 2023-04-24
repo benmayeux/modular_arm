@@ -45,13 +45,15 @@ def update_fake_data():  # to create dynamic fake data, called in running loop
     plot_t.append(plot_t[-1] + 0.5)
     plot_datay.append(cos(3 * 3.14 * plot_t[-1] / 180))
 
+
 """MATPLOT Simulation Stuff"""
 fig_width = 4
 fig_height = 4
 plt.rcParams['figure.figsize'] = [fig_width, fig_height]
 robot = rtb.models.DH.Panda()  # create a robot
 robot.q = robot.qz  # set the robot configuration
-pyplot = PyPlot() # create a PyPlot backend
+pyplot = PyPlot()  # create a PyPlot backend
+
 
 def makeRobot(q):
     # print(modelType)
@@ -59,7 +61,7 @@ def makeRobot(q):
 
     if modelType == "RRR":
         robot = rtb.DHRobot([
-            rtb.RevoluteDH(d=0.333, alpha=math.pi/2),
+            rtb.RevoluteDH(d=0.333, alpha=math.pi / 2),
             rtb.RevoluteDH(a=0.333),
             rtb.RevoluteDH(a=0.333)
         ], name="RRR")
@@ -75,23 +77,27 @@ def convertFigToImage(figure):
     plot_image = np.asarray(buf)
     return plot_image.astype(np.float32) / 255
 
+
 def makePyPlot():
     pyplot.launch(show=False)  # setup pyplot fig and ax, HAD TO CHANGE LIBRARY CODE TO INCLUDE SHOW OPTION
     fig = pyplot.fig
     ax = pyplot.ax
 
-    pyplot.add(robot, show=False)     # add the robot to the backend, HAD TO CHANGE LIBRARY CODE TO INCLUDE SHOW OPTION
+    pyplot.add(robot, show=False)  # add the robot to the backend, HAD TO CHANGE LIBRARY CODE TO INCLUDE SHOW OPTION
     matplot = convertFigToImage(fig)
 
     return matplot, fig, ax
 
-matplot, fig, ax = makePyPlot()
 
+matplot, fig, ax = makePyPlot()  # initialize the plot
 
 """Helper and Callback Functions"""
+
+
 def windowMatPlot():  # to activate the interactive MatPlot
     global matplotInteract
     matplotInteract = True
+
 
 def update_serial_data():
     torque_value = None
@@ -110,12 +116,13 @@ def update_serial_data():
             elif line.startswith("Torque:"):
                 torque_value = float(line.split(":")[1].strip())
             elif line.startswith("Num Modules:"):
-                modules = float(line.split(":")[1].strip())
+                global serialModules
+                serialModules = float(line.split(":")[1].strip())
             # else:
             #     if line != "":
             #         print(line)
     except:
-        #print("decode error")
+        # print("decode error")
         return
 
     if torque_value is not None:
@@ -125,11 +132,10 @@ def update_serial_data():
         plot_t.append(plot_t[-1] + 0.5)
         plot_datay.append(torque_value)
 
-def warningBox(title, message):
 
+def warningBox(title, message):
     # guarantee these commands happen in the same frame
     with dpg.mutex():
-
         viewport_width = dpg.get_viewport_client_width()
         viewport_height = dpg.get_viewport_client_height()
 
@@ -159,7 +165,8 @@ def addJointControlInput(config_name, n_modules):
                 with dpg.group(horizontal=True, tag="joint" + str(i) + config_name + "Group"):
                     dpg.add_input_float(label="Joint " + str(i), tag="joint" + str(i) + config_name,
                                         default_value=0, step=0.01)
-                    dpg.add_button(label="Set", callback=sendSerialInput, user_data=["joint" + str(i) + config_name,"setJointPos",i])
+                    dpg.add_button(label="Set", callback=sendSerialInput,
+                                   user_data=["joint" + str(i) + config_name, "setJointPos", i])
                     # user data = [tag of corresponding input_float, Serial command name, joint number]
 
 
@@ -212,9 +219,9 @@ def sendSerialInput(sender, app_data, user_data):  # function for obtaining data
 
         # update matplot for robot sim
         currentQ = robot.q
-        #print("Old Q: " + str(currentQ))
+        # print("Old Q: " + str(currentQ))
         currentQ[user_data[2]] = relatedValue
-        #print("New Q: " + str(currentQ))
+        # print("New Q: " + str(currentQ))
         makeRobot(currentQ)
     else:
         x = ""
@@ -224,7 +231,6 @@ def sendSerialInput(sender, app_data, user_data):  # function for obtaining data
         print("Sent Serial:" + x)
     else:
         print(x)
-
 
 
 def window_change(sender, app_data, user_data):  # callback for changing windows
@@ -239,8 +245,7 @@ def window_change(sender, app_data, user_data):  # callback for changing windows
     if newWindow == "RRR_window":
         modelType = "RRR"
         print(modelType)
-        makeRobot([0,0,0])
-
+        makeRobot([0, 0, 0])
 
 
 def update_custom():  # callback for updating custom window buttons based on the number of modules
@@ -260,7 +265,8 @@ def update_custom():  # callback for updating custom window buttons based on the
     for i in range(int(new_num_modules)):
         with dpg.group(horizontal=True, width=110, parent="cus_joints", tag="cus_group" + str(i)):
             dpg.add_input_float(label="Joint " + str(i), tag="cus_joint" + str(i), default_value=0, step=0.01)
-            dpg.add_button(label="Set", callback=sendSerialInput, user_data=["cus_joint" + str(i),"setJointPos",i], tag="cus_set" + str(i))
+            dpg.add_button(label="Set", callback=sendSerialInput, user_data=["cus_joint" + str(i), "setJointPos", i],
+                           tag="cus_set" + str(i))
 
     prevNumModules = new_num_modules  # update modules variable
 
@@ -281,7 +287,7 @@ def update_3d_slider(sender, app_data, user_data):  # callback to update slider 
 
 def update_slider_inputs(sender, app_data, user_data):  # callback to update slider inputs based on 3Dslider
     # slider values = [x z y]
-    #print(app_data)
+    # print(app_data)
     dpg.set_value(user_data[0], app_data[0])
     dpg.set_value(user_data[1], app_data[2])
     dpg.set_value(user_data[2], app_data[1])
@@ -300,8 +306,11 @@ RRR_width, RRR_height, RRR_channels, RRR_data = dpg.load_image("RRR.png")
 cus_width, cus_height, cus_channels, cus_data = dpg.load_image("custom.png")
 
 with dpg.texture_registry(show=False):
+    # menu images
     dpg.add_static_texture(width=RRR_width, height=RRR_height, default_value=RRR_data, tag="RRR_image")
     dpg.add_static_texture(width=cus_width, height=cus_height, default_value=cus_data, tag="cus_image")
+
+    # matplot simulation
     dpg.add_raw_texture(fig_width * 100, fig_height * 100, matplot, format=dpg.mvFormat_Float_rgba, tag="matplot")
 
 # Windows
