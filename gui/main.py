@@ -171,6 +171,7 @@ def addJointControlInput(config_name, n_modules):
                     dpg.add_input_float(label="Joint " + str(i), tag="joint" + str(i) + config_name,
                                         default_value=0, step=0.01)
                     dpg.add_button(label="Set", callback=sendSerialInput, user_data=["joint" + str(i) + config_name,"setJointPos",i])
+                    # user data = [tag of corresponding input_float, Serial command name, joint number]
 
 
 def addTaskSpaceInput(config_name):
@@ -214,11 +215,13 @@ def sendSerialInput(sender, app_data, user_data):  # example function for obtain
     if commandName == "setTaskPos":
         # x=[0], y =[2], z=[1]
         x = commandName + "(" + str(relatedValue[0]) + "," + str(relatedValue[2]) + "," + str(relatedValue[1]) + ")"
-    else:
+    elif commandName == "setJointPos":
         if relatedValue > 50:
             warningBox("Warning: Joint Limit Exceeded", "You have exceeded the joint limit, try a new value")
             return
         x = commandName + "(" + str(user_data[2]) + "," + str(relatedValue) + ")"
+    else:
+        x = ""
 
     if commsOpen:
         cs.write(x)
