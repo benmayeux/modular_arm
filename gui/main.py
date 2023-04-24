@@ -54,7 +54,6 @@ pyplot = PyPlot()
 def makeRobot(q):
     # print(modelType)
     global robot, pyplot, remakePyPlot
-    plt.close(pyplot.fig)
     # pyplot.reset()
     # pyplot.close()
     # pyplot = PyPlot()
@@ -246,15 +245,15 @@ def sendSerialInput(sender, app_data, user_data):  # example function for obtain
             warningBox("Warning: Joint Limit Exceeded", "You have exceeded the joint limit, try a new value")
             return
         x = commandName + "(" + str(user_data[2]) + "," + str(relatedValue) + ")"
-    else:
-        x = ""
 
         # update matplot for robot sim
         currentQ = robot.q
-        #print("Old Q: " + str(currentQ))
+        print("Old Q: " + str(currentQ))
         currentQ[user_data[2]] = relatedValue
-        #print("New Q: " + str(currentQ))
+        print("New Q: " + str(currentQ))
         makeRobot(currentQ)
+    else:
+        x = ""
 
     if commsOpen:
         cs.write(x)
@@ -423,6 +422,7 @@ while dpg.is_dearpygui_running():  # this starts the runtime loop
         # remake plot because image gets messed otherwise
         matplot, fig, ax = makePyPlot()
     elif remakePyPlot:
+        plt.close(pyplot.fig)
         matplot, fig, ax = makePyPlot()
         # pyplot.add(robot, show=False)  # add the robot to the backend, HAD TO CHANGE LIBRARY CODE TO INCLUDE SHOW OPTION
         # matplot = convertFigToImage(fig)
