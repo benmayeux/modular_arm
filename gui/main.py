@@ -33,10 +33,11 @@ try:
 except:
     print("No comms")
 
-plot_t = [] # stores x-axis data
-plot_datay = [] # stores y-axis data
-dataCatagories = 2 # stores number of data categories per joint (torque and velocity = 2)
-numOfDataSets = 3*dataCatagories # stores number of data sets/expected graphs
+plot_t = []  # stores x-axis data
+plot_datay = []  # stores y-axis data
+dataCatagories = 2  # stores number of data categories per joint (torque and velocity = 2)
+numOfDataSets = 3 * dataCatagories  # stores number of data sets/expected graphs
+
 
 def initializeDatasets(numOfSets):
     global plot_t, plot_datay
@@ -46,10 +47,12 @@ def initializeDatasets(numOfSets):
         plot_t.append([0])
         plot_datay.append([0])
 
+
 initializeDatasets(20)
 
 """Testing stuff (Called when comms are closed)"""
 filename = 'text'  # for testing updating custom window
+
 
 def update_fake_data():  # to create dynamic fake data, called in running loop
     for i in range(numOfDataSets):
@@ -79,9 +82,11 @@ robot = rtb.models.DH.Panda()  # create a robot
 robot.q = robot.qz  # set the robot configuration
 pyplot = PyPlot()  # create a PyPlot backend
 
+
 def windowMatPlot():  # to activate the interactive MatPlot
     global matplotInteract
     matplotInteract = True
+
 
 def makeRobot(q):
     # print(modelType)
@@ -227,17 +232,20 @@ def addPlot(name, x_name, y_name, x_data, y_data):
                 dpg.add_line_series(x_data, y_data[i], label=y_name + " " + str(i + 1), parent=name + "_y_axis",
                                     tag=name + str(i + 1))
 
+
 def addPlotSection(configName):
     global newNumModules, plotMade
-    with dpg.tree_node(label="Torques", parent=configName+"_plots"):
+    with dpg.tree_node(label="Torques", parent=configName + "_plots"):
         for i in range(newNumModules):
-            addPlot(configName+" Torque Joint" + str(i), "Time", "Torque", plot_t[dataCatagories * i],
+            addPlot(configName + " Torque Joint" + str(i), "Time", "Torque", plot_t[dataCatagories * i],
                     plot_datay[dataCatagories * i])
-    with dpg.tree_node(label="Velocities", parent=configName+"_plots"):
+    with dpg.tree_node(label="Velocities", parent=configName + "_plots"):
         for i in range(newNumModules):
-            addPlot(configName+" Velocity Joint" + str(i), "Time", "Velocity", plot_t[dataCatagories * i + 1],
+            addPlot(configName + " Velocity Joint" + str(i), "Time", "Velocity", plot_t[dataCatagories * i + 1],
                     plot_datay[dataCatagories * i + 1])
     plotMade = True
+
+
 def sendSerialInput(sender, app_data, user_data):  # function for obtaining data from widget and serial sending
     relatedTag = user_data[0]
     relatedValue = dpg.get_value(relatedTag)
@@ -279,19 +287,24 @@ def window_change(sender, app_data, user_data):  # callback for changing windows
     global modelType, numOfDataSets, dataCatagories, newNumModules, plotMade
     plotMade = False
     if newWindow == "RRR_window":
-        modelType = "RRR"
-        print(modelType)
-        makeRobot([0, 0, 0])
-        newNumModules = 3
-        numOfDataSets = newNumModules*dataCatagories
-        initializeDatasets(numOfDataSets)
-        addPlotSection(modelType)
+        initializeSupportedWindowVariables("RRR", 3)  # for supported configs
 
     elif newWindow == "cus_window":
         modelType = "cus"
 
     elif newWindow == "Primary Window":
         modelType = None
+
+
+def initializeSupportedWindowVariables(modelName, numModules):
+    global modelType, numOfDataSets, dataCatagories, newNumModules
+    modelType = modelName
+    print(modelType)
+    makeRobot(np.zeros(numModules))
+    newNumModules = numModules
+    numOfDataSets = newNumModules * dataCatagories
+    initializeDatasets(numOfDataSets)
+    addPlotSection(modelType)
 
 
 def update_custom():  # callback for updating custom window buttons based on the number of modules
@@ -309,7 +322,7 @@ def update_custom():  # callback for updating custom window buttons based on the
     for i in range(prevNumModules):
         dpg.delete_item("cus_group" + str(i))
 
-    for i in range(int(newNumModules)): # add joint input buttons
+    for i in range(int(newNumModules)):  # add joint input buttons
         with dpg.group(horizontal=True, width=110, parent="cus_joints", tag="cus_group" + str(i)):
             dpg.add_input_float(label="Joint " + str(i), tag="cus_joint" + str(i), default_value=0, step=0.01)
             dpg.add_button(label="Set", callback=sendSerialInput, user_data=["cus_joint" + str(i), "setJointPos", i],
@@ -456,9 +469,11 @@ while dpg.is_dearpygui_running():  # this starts the runtime loop
             update_fake_data()  # for dynamic graph testing
 
         if modelType is not None and plotMade:
-            for i in range(int(newNumModules)): # for each joint
-                update_plot(modelType + " Torque Joint" + str(i), plot_t[dataCatagories*i], plot_datay[dataCatagories*i])  # custom function to update a plot
-                update_plot(modelType + " Velocity Joint" + str(i), plot_t[dataCatagories*i+1], plot_datay[dataCatagories*i+1])
+            for i in range(int(newNumModules)):  # for each joint
+                update_plot(modelType + " Torque Joint" + str(i), plot_t[dataCatagories * i],
+                            plot_datay[dataCatagories * i])  # custom function to update a plot
+                update_plot(modelType + " Velocity Joint" + str(i), plot_t[dataCatagories * i + 1],
+                            plot_datay[dataCatagories * i + 1])
 
         frames += 1  # keeping track of frames
         dpg.render_dearpygui_frame()  # render the frame
