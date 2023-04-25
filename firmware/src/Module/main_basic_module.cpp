@@ -14,9 +14,10 @@ int16_t effort = 127;
 void setup() {
   Serial.begin(9600);
   delay(100);
+  Serial2.begin(115200);
 
   // Run the module setup (reads calibration data from EEPROM, determines mounting orientation, waits for communication from base module)
-  thisModule.setup();
+  thisModule.setup(&Serial2,&Serial2);
 }
 
 void loop() {

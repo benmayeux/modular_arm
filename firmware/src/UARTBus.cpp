@@ -6,6 +6,7 @@
 #include "UARTBus.h"
 
 
+
     int UARTBus::available() {
       return serialPort->available();
     }
@@ -14,27 +15,14 @@
      *
      * @param delegateIn A data delegate based on current command on the bus
      */
-    UARTBus::UARTBus(UARTBusDataDelegate* delegateIn, int uartPort) {
+    UARTBus::UARTBus(UARTBusDataDelegate* delegateIn, Stream* in, Stream* out) {
       delegate = delegateIn;
-      switch(uartPort) {
-        case 0:
-          serialPort = &Serial;
-          break;
-        case 1:
-          serialPort = &Serial1;
-          break;
-        case 2:
-          serialPort = &Serial2;
-          break;
-        default:
-          serialPort = &Serial;
-          break;
-      }
+      serialPort = (HardwareSerial*)(new SerialAdapter(in, out));
       serialPort->begin(115200);
     }
 
     UARTBus::UARTBus() {
-      UARTBus(0, 1);
+      UARTBus(0, nullptr, nullptr);
     }
 
    

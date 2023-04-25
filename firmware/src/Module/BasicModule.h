@@ -14,7 +14,7 @@
 class BasicModule: public UARTBusDataDelegate {
     public:
         BasicModule(uint8_t PWMPin, uint8_t potentiometerPin, uint8_t mountingOrientationSwitchPin);
-        void setup();
+        void setup(Stream* in, Stream* out);
         void loop();
         int16_t fetchData(CommandType command);
         Configuration getConfiguration();

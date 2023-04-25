@@ -6,20 +6,21 @@
 #include "UARTBusDataDelegate.h"
 #include "Configuration.h"
 #include "DebugPrint.h"
+#include "SerialAdapter.h"
 
 class UARTBus {
   public:
     UARTBusDataDelegate* delegate;
     int address = -1;
     HardwareSerial* serialPort;
-    
+
     int available();
     /**
      * @brief Construct a new UARTBus object
      *
      * @param delegateIn A data delegate based on current command on the bus
      */
-    UARTBus(UARTBusDataDelegate* delegateIn, int uartPort);
+    UARTBus(UARTBusDataDelegate* delegateIn, Stream* in, Stream* out);
     UARTBus();
 
     /**

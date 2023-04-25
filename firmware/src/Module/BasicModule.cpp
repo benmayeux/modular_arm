@@ -211,10 +211,10 @@ void BasicModule::controlLoopCalibration(){
 /*
     Boots up the module, determines necessary constants, and initiates communications
 */
-void BasicModule::setup(){
+void BasicModule::setup(Stream* in, Stream* out){
     // Set initial mode (disabled)
         this->mode = MODE_DISABLE;
-        this->dataBus = UARTBus(this, 2);
+        this->dataBus = UARTBus(this, in, out);
     // Pull calibration data from flash
         // Begin EEPROM
 #ifdef SIMULATION
