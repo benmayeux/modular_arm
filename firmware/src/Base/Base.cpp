@@ -52,7 +52,7 @@ namespace base {
   }
 
 
-  Command Base::sendCarouselCommand(CommandType commandType, int16_t* data, int length) {
+  Command Base::sendCarouselCommand(CommandType commandType, int16_t* dataIn, int16_t* dataOut, int nDataOut, int length) {
     DEBUG_PRINT("sending carousel: " + (String)commandType + ": " + (String)length);
     Command command = Command();
     command.command = (CommandType)(commandType | CommandType::CAROUSEL);
@@ -60,15 +60,15 @@ namespace base {
       DEBUG_PRINT("ERROR: size of carousel data does not match number of joints!");
       return command;
     }
-    command.data = nJoints;
+    command.data[0] = nJoints;
     bus.sendCommand(command);
     for (int i = 0; i < length; i++) {
-      bus.sendData(data[i]);
+      bus.sendData(dataIn[i]);
     }
     command = bus.receiveCommand();
     DEBUG_PRINT(command.command);
-    for (int i = 0; i < length; i++) {
-      data[i] = bus.receiveData<int16_t>();
+    for (int i = 0; i < length*nDataOut; i++) {
+      dataOut[i] = bus.receiveData<int16_t>();
     }
     return command;
   }
@@ -78,12 +78,12 @@ namespace base {
     DEBUG_PRINT("Sending: " + (String)commandType + ":" + (String)data + " to joint: " + (String)address);
     Command command = Command();
     command.command = commandType;
-    command.data = data;
+    command.data[0] = data;
     command.address = address;
     bus.sendCommand(command);
     command = bus.receiveCommand();
     DEBUG_PRINT(command.command);
-    DEBUG_PRINT("received back: " + (String) command.data);
+    DEBUG_PRINT("received back: " + (String) command.data[0] + ": " + (String) command.getNReturn());
     return command;
   }
 
@@ -95,8 +95,8 @@ namespace base {
     return sendToJoint((CommandType)(CommandType::POSITION_WRITE | CommandType::RETURN_POSITION), address, data);
   }
 
-  Command Base::sendCarouselPosition(int16_t* data, int length) {
-    return sendCarouselCommand(CommandType::POSITION_WRITE_CAROUSEL, data, length);
+  Command Base::sendCarouselPosition(int16_t* data, int length, int16_t* dataOut) {
+    return sendCarouselCommand(CommandType::POSITION_WRITE_CAROUSEL | CommandType::RETURN_POSITION | CommandType::RETURN_EFFORT , data, dataOut, 2, length);
   }
 
   // TODO: actual IK
@@ -110,17 +110,25 @@ namespace base {
 
   void Base::executeCommand(SerialInputCommand command) {
     int n = 0;
-    int16_t dataBuffer[10];
+    int16_t dataBuffer[40];
+    Command c;
     switch (command.commandType) {
       case SerialInputCommandType::RECONFIGURE:
         fetchConfiguration();
         break;
       case SerialInputCommandType::SET_JOINT_POSITION:
-        sendPosition(command.data[0], command.data[1]);
+        c = sendPosition(command.data[0], command.data[1]);
+        n = c.getNReturn(); 
+        for (int i = 0; i < c.getNReturn(); i++) {
+          Serial.println(c.data[i]);
+        }
         break;
       case SerialInputCommandType::SET_TASK_POSITION:
         n = calculateIK(dataBuffer, command.data[0],command.data[1],command.data[2]);
-        sendCarouselPosition(dataBuffer, n);
+        c = sendCarouselPosition(dataBuffer, n, dataBuffer);
+        for (int i = 0; i < n * c.getNReturn(); i++) {
+          Serial.println(dataBuffer[i]);
+        }
         break;
       case SerialInputCommandType::INVALID:
         DEBUG_PRINT("Invalid command!");
