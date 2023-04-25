@@ -5,8 +5,10 @@
 
 struct Configuration {
     float length;
-    byte address;
-    byte orientation;
+    int orientation;
+    int torqueLimit;
+    int posMin;
+    int posMax;
 };
 
 #endif

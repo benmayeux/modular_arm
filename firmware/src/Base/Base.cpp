@@ -18,6 +18,7 @@ namespace base {
   bool Base::fetchConfiguration(int timeout) {
     Command c = Command();
     c.command = CommandType::CONFIGURE;
+    // starting address
     c.address = 1;
     DEBUG_PRINT("sending config...");
     DEBUG_PRINT(c.command);
@@ -43,11 +44,14 @@ namespace base {
 
     for(int n = 0; n < nJoints; n++) {
       config[n] = bus.receiveConfiguration();
+      DEBUG_PRINT("joint " + (String)n + ":");
+      DEBUG_PRINT("    length: " + (String)config[n].length);
+      DEBUG_PRINT("    orientation: " + (String)config[n].orientation);
     }
     return true;
   }
 
-  // TODO: return data
+
   Command Base::sendCarouselCommand(CommandType commandType, int16_t* data, int length) {
     DEBUG_PRINT("sending carousel: " + (String)commandType + ": " + (String)length);
     Command command = Command();
@@ -64,7 +68,7 @@ namespace base {
     command = bus.receiveCommand();
     DEBUG_PRINT(command.command);
     for (int i = 0; i < length; i++) {
-      DEBUG_PRINT((String)bus.receiveData<int16_t>());
+      data[i] = bus.receiveData<int16_t>();
     }
     return command;
   }

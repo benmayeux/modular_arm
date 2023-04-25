@@ -28,7 +28,15 @@ void setup() {
     streams[i] = new LoopbackStream();
   }
   for (int i = 0; i<N_JOINTS; i++) {
-    modules[i] = new BasicModule(14,4,23);
+    modules[i] = new BasicModule(14,4,23); // TODO: set pins accordingly
+
+    Configuration c = Configuration();
+    c.length = i+1; // TODO: get length
+    c.posMax = modules[i]->getMaxPotRange();
+    c.posMin = modules[i]->getMinPotRange();
+    c.orientation = modules[i]->getArmOrientation();
+    modules[i]->setConfiguration(c);
+
     if(i == 0) {
       modules[i]->setup(&Serial2, streams[i]);
     } else if (i == N_JOINTS -1) {

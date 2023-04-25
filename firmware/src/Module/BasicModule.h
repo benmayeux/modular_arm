@@ -14,7 +14,8 @@
 class BasicModule: public UARTBusDataDelegate {
     public:
         BasicModule(uint8_t PWMPin, uint8_t potentiometerPin, uint8_t mountingOrientationSwitchPin);
-        void setup(Stream* in, Stream* out);
+        void setConfiguration(Configuration c);
+        void setup(Stream *in, Stream *out);
         void loop();
         int16_t fetchData(CommandType command);
         Configuration getConfiguration();
@@ -162,6 +163,8 @@ class BasicModule: public UARTBusDataDelegate {
 
         // The last time in milliseconds that the position was read from the potentiometer
         uint32_t lastTimeCalculated = millis();
+
+        Configuration configuration;
 };
 
 

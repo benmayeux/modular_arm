@@ -35,7 +35,9 @@ BasicModule::BasicModule(uint8_t PWMPin, uint8_t potentiometerPin, uint8_t mount
     this->mountingOrientationSwitchPin = mountingOrientationSwitchPin;
 }
 
-
+void BasicModule::setConfiguration(Configuration c) {
+    configuration = c;
+}
 
 int16_t BasicModule::fetchData(CommandType command) {
 
@@ -56,11 +58,7 @@ int16_t BasicModule::fetchData(CommandType command) {
 
 // TODO: get actual values from EEPROM?
 Configuration BasicModule::getConfiguration() {
-        Configuration c = Configuration();
-        c.address = this->dataBus.address;
-        c.length = 0x10;
-        c.orientation = 0x01;
-        return c;
+    return configuration;
 }
 
 void BasicModule::processCommand(Command c) {

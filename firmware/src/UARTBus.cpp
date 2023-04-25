@@ -90,8 +90,6 @@
             return currentCommand;
           }
 
-         
-
           if (currentCommand.command & CAROUSEL) {
             int size = currentCommand.data;
             // Forward original command

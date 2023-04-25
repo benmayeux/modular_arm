@@ -13,18 +13,14 @@ enum CommandType {
     __RESERVED_COMMAND2 = 0x06,
     __RESERVED_COMMAND3 = 0x07,
 
-
     // bit 3
-    __RESERVED_BIT = 0x08,
+    CAROUSEL = 1 << 3,
 
-    // bit 4
-    CAROUSEL = 0x10,
-
-    // bit 5-6
+    // bit 4-6
     RETURN_MASK = 0x60,
-    RETURN_POSITION = POSITION << 5,
-    RETURN_EFFORT = EFFORT << 5,
-    RETURN_VELOCITY = VELOCITY << 5,
+    RETURN_POSITION = 1 << 4,
+    RETURN_EFFORT = 1 << 5,
+    RETURN_VELOCITY = 1 << 6,
     // bit 7
     __RESERVED_BIT2 = 0x80,
 
