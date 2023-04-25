@@ -52,21 +52,23 @@ initializeDatasets(20)
 filename = 'text'  # for testing updating custom window
 
 def update_fake_data():  # to create dynamic fake data, called in running loop
-    currentT = plot_t[0]
-    currentY = plot_datay[0]
-    if len(currentT) > 400:
-        currentT.pop(0)
-        currentY.pop(0)
-    currentT.append(currentT[-1] + 0.5)
-    currentY.append(sin(3 * 3.14 * currentT[-1] / 180))
+    for i in range(numOfDataSets):
+        currentT = plot_t[i]
+        currentY = plot_datay[i]
+        if len(currentT) > 400:
+            currentT.pop(0)
+            currentY.pop(0)
+        currentT.append(currentT[-1] + 0.5)
+        # currentY.append(sin(3 * 3.14 * currentT[-1] / 180))
+        currentY.append(np.random.random())
 
-    currentT = plot_t[1]
-    currentY = plot_datay[1]
-    if len(currentT) > 200:
-        currentT.pop(0)
-        currentY.pop(0)
-    currentT.append(currentT[-1] + 0.5)
-    currentY.append(cos(3 * 3.14 * currentT[-1] / 180))
+    # currentT = plot_t[1]
+    # currentY = plot_datay[1]
+    # if len(currentT) > 200:
+    #     currentT.pop(0)
+    #     currentY.pop(0)
+    # currentT.append(currentT[-1] + 0.5)
+    # currentY.append(cos(3 * 3.14 * currentT[-1] / 180))
 
 
 """MATPLOT Simulation Stuff"""
