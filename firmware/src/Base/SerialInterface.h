@@ -5,9 +5,10 @@
 
 
 namespace base {
-    static const String SERIAL_COMMAND_JOINT_POSITION = "SETJOINTPOSITION";
-    static const String SERIAL_COMMAND_TASK_POSITION = "SETTASKPOSITION";
-    static const String SERIAL_COMMAND_RECONFIGURE = "RECONFIGURE";
+    static const String SERIAL_COMMAND_JOINT_POSITION = "setJointPos";
+    static const String SERIAL_COMMAND_TASK_POSITION = "setTaskPos";
+    static const String SERIAL_COMMAND_RECONFIGURE = "reconfigure";
+    static const String SERIAL_COMMAND_POLL = "poll";
 
     class SerialInterface {
     public:

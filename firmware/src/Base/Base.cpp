@@ -51,6 +51,36 @@ namespace base {
     return true;
   }
 
+  Command Base::pollData(int16_t* buffer) {
+    int timeout = 10000;
+    Command c = Command();
+    c.command = (CommandType)(CommandType::NOOP | CommandType::RETURN_POSITION | CommandType::RETURN_EFFORT | CommandType::RETURN_VELOCITY | CommandType::CAROUSEL);
+    // starting address
+    c.address = -1;
+    c.data[0] = nJoints;
+    DEBUG_PRINT("sending poll...");
+    DEBUG_PRINT(c.command);
+    bus.sendCommand(c);
+    int elapsed = 0;
+    while(!bus.available()) {
+      DEBUG_PRINT("waiting");
+      elapsed += 100;
+      delay(100);
+      if(elapsed >= timeout) {
+        DEBUG_PRINT("timeout");
+        c.address = -2;
+        return c;
+      }
+    }
+    c = bus.receiveCommand();
+    DEBUG_PRINT("got "+ (String)c.command);
+    int nReturn = c.getNReturn();
+    for(int n = 0; n < nJoints * nReturn; n++) {
+      buffer[n] = bus.receiveData<int16_t>();
+    }
+    return c;
+  }
+
 
   Command Base::sendCarouselCommand(CommandType commandType, int16_t* dataIn, int16_t* dataOut, int nDataOut, int length) {
     DEBUG_PRINT("sending carousel: " + (String)commandType + ": " + (String)length);
@@ -92,12 +122,13 @@ namespace base {
   }
 
   Command Base::sendPosition(int address, int16_t data) {
-    return sendToJoint((CommandType)(CommandType::POSITION_WRITE | CommandType::RETURN_POSITION), address, data);
+    return sendToJoint((CommandType)(CommandType::POSITION_WRITE | CommandType::RETURN_POSITION | CommandType::RETURN_EFFORT | CommandType::RETURN_VELOCITY), address, data);
   }
 
   Command Base::sendCarouselPosition(int16_t* data, int length, int16_t* dataOut) {
-    return sendCarouselCommand((CommandType)(CommandType::POSITION_WRITE_CAROUSEL | CommandType::RETURN_POSITION | CommandType::RETURN_EFFORT), data, dataOut, 2, length);
+    return sendCarouselCommand((CommandType)(CommandType::POSITION_WRITE_CAROUSEL | CommandType::RETURN_POSITION | CommandType::RETURN_EFFORT | CommandType::RETURN_VELOCITY), data, dataOut, 2, length);
   }
+
 
   // TODO: actual IK
   int Base::calculateIK(int16_t* output, int16_t x, int16_t y, int16_t z) {
@@ -112,6 +143,7 @@ namespace base {
     int n = 0;
     int16_t dataBuffer[40];
     Command c;
+    int nReturn;
     switch (command.commandType) {
       case SerialInputCommandType::RECONFIGURE:
         fetchConfiguration();
@@ -119,23 +151,42 @@ namespace base {
       case SerialInputCommandType::SET_JOINT_POSITION:
         c = sendPosition(command.data[0], command.data[1]);
         n = c.getNReturn();
-        Serial.println("1,JOINT,POS");
+        Serial.println("1,JOINT,POS,EFF,VEL");
         Serial.print((String)command.data[0] + ",");
         for (int i = 0; i < c.getNReturn(); i++) {
-          Serial.println(c.data[i]);
+          Serial.print((String)c.data[i] + ",");
         }
         break;
       case SerialInputCommandType::SET_TASK_POSITION:
         n = calculateIK(dataBuffer, command.data[0],command.data[1],command.data[2]);
         c = sendCarouselPosition(dataBuffer, n, dataBuffer);
-        Serial.println((String)n + ",JOINT,POS,EFF,");
+        DEBUG_PRINT("COMMAND");
+        DEBUG_PRINT(c.command);
+
+        Serial.println((String)n + ",JOINT,POS,EFF,VEL");
         for (int i = 0; i < n; i++) {
           Serial.print((String)i + ",");
-          for (int j = 0; j < c.getNReturn(); j++) {
-            Serial.print((String)dataBuffer[2*i + j] + ",");
+          nReturn = c.getNReturn();
+          DEBUG_PRINT(nReturn);
+          for (int j = 0; j < nReturn; j++) {
+            Serial.print((String)dataBuffer[nReturn*i + j] + ",");
           }
           Serial.println();
         }
+        break;
+      case SerialInputCommandType::POLL:
+        DEBUG_PRINT("Polling...");
+        c = pollData(dataBuffer);
+        Serial.println((String)nJoints + ",JOINT,POS,EFF,VEL");
+        n = c.getNReturn();
+        for (int i = 0; i < nJoints; i++) {
+          Serial.print((String)i + ",");
+          for (int j = 0; j < n; j++) {
+            Serial.print((String)dataBuffer[n*i + j] + ",");
+          }
+          Serial.println();
+        }
+
         break;
       case SerialInputCommandType::INVALID:
         DEBUG_PRINT("Invalid command!");

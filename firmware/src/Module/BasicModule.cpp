@@ -54,6 +54,8 @@ byte BasicModule::fetchData(CommandType command, int16_t* data) {
         data[nData] = this->getVelocity();
         nData++;
     }
+    DEBUG_PRINT("Ndata");
+    DEBUG_PRINT(nData);
     return nData;
 }
 
