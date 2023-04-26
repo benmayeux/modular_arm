@@ -8,7 +8,6 @@ namespace base {
     static const String SERIAL_COMMAND_JOINT_POSITION = "setJointPos";
     static const String SERIAL_COMMAND_TASK_POSITION = "setTaskPos";
     static const String SERIAL_COMMAND_RECONFIGURE = "reconfigure";
-    static const String SERIAL_COMMAND_POLL = "poll";
 
     class SerialInterface {
     public:

@@ -20,8 +20,6 @@ namespace base {
                 result.commandType = SerialInputCommandType::SET_TASK_POSITION;
             } else if (inputCommand == SERIAL_COMMAND_RECONFIGURE) {
                 result.commandType = SerialInputCommandType::RECONFIGURE;
-            } else if (inputCommand == SERIAL_COMMAND_POLL) {
-                result.commandType = SerialInputCommandType::POLL;
             } else {
                 result.commandType = SerialInputCommandType::INVALID;
                 return result;

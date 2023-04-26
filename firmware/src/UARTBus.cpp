@@ -25,6 +25,9 @@
       UARTBus(0, nullptr, nullptr);
     }
 
+   
+  
+
     /**
      * @brief Sends a command on the bus
      *
@@ -33,6 +36,8 @@
     void UARTBus::sendCommand(Command c) {
       sendData(c);
     }
+
+   
 
     /**
      * @brief Consumes a raw command from the bus
@@ -85,21 +90,12 @@
           }
 
           if (currentCommand.command & CAROUSEL) {
-            int nDataIn = 1;
-            // poll command hack
-            if ((currentCommand.command & CommandType::COMMANDTYPE_MASK) == CommandType::NOOP) {
-              DEBUG_PRINT("POLL");
-              nDataIn = 0;
-            }
-
             int nJoints = (int)currentCommand.data[0];
             // Forward original command
             sendCommand(currentCommand);
             int16_t* dataBuffer = new int16_t[currentCommand.getNReturn()];
             byte nDataOut = delegate->fetchData(currentCommand.command, dataBuffer);
-            DEBUG_PRINT(nDataOut);
-            DEBUG_PRINT("forwarding");
-            leftShiftBus(nJoints, currentCommand.data, nDataIn, dataBuffer, nDataOut);
+            leftShiftBus(nJoints, currentCommand.data, 1, dataBuffer, nDataOut);
             delete[] dataBuffer;
 
             // Forward data

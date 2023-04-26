@@ -1,6 +1,5 @@
 #ifndef COMMAND_H
 #define COMMAND_H
-#include <DebugPrint.h>
 
 enum CommandType {
     // bits 0-2
@@ -47,7 +46,6 @@ struct Command {
         return command & CAROUSEL;
     }
     int getNReturn() {
-        DEBUG_PRINT("Getting nreturn on " + (String)this->command);
         byte c = ((byte)command & (byte)RETURN_MASK);
         int count = 0;
         for (int bit = 1; bit < 1 << 8; bit = bit << 1) {

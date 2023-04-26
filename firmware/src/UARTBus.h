@@ -32,7 +32,6 @@ class UARTBus {
 
 
     template <typename T> void sendData(T data) {
-      DEBUG_PRINT("rawSend: " + (String)sizeof(data));
       serialPort->write((uint8_t*)&data, sizeof(data));
     }
 
@@ -52,27 +51,17 @@ class UARTBus {
      * @return TOUT 
      */
     byte leftShiftBus(int nJoints, int16_t* dataIn, byte nDataIn, int16_t* dataOut, byte nDataOut) {
-      DEBUG_PRINT("left shift");
-      DEBUG_PRINT(nJoints);
-      DEBUG_PRINT(nDataIn);
       for (int i = 0; i < nDataIn; i++) {
         dataIn[i] = receiveData<int16_t>();
-        DEBUG_PRINT("Got : " + (String)dataIn[i]);
       }
 
       int nForwardWords = nDataOut * (address - 1) + nDataIn * (nJoints - address);
-      DEBUG_PRINT(nForwardWords);
-      while (nForwardWords > 0) {
-        int16_t d = receiveData<int16_t>();
-        DEBUG_PRINT("forwarding " + (String)d);
-        sendData(d);
-        nForwardWords--;
+      while (nForwardWords--) {
+        sendData(receiveData<int16_t>());
       }
 
-      DEBUG_PRINT(nDataOut);
       for (int i = 0; i < nDataOut; i++) {
         sendData(dataOut[i]);
-        DEBUG_PRINT("sending " + (String)dataOut[i]);
       }
       return nDataIn;
     }

@@ -6,7 +6,6 @@ namespace base {
         SET_JOINT_POSITION,
         SET_TASK_POSITION,
         INVALID,
-        POLL,
         RECONFIGURE,
         NONE
     };
