@@ -307,15 +307,22 @@ def addPlot(name, x_name, y_name, x_data, y_data):
 
 
 def addPlotSection(configName):
+    dpg.delete_item(configName+"_plots")
+
+    with dpg.collapsing_header(label="Data Collection", tag=configName+"_plots", parent=configName+"_window"):
+        dpg.add_text("Live Data from Robot")
+
     global newNumModules, plotMade
     with dpg.tree_node(label="Torques", parent=configName + "_plots"):
-        for i in range(newNumModules):
-            addPlot(configName + " Torque Joint" + str(i), "Time", "Torque", plot_t[dataCategories * i + torque_location],
-                    plot_datay[dataCategories * i + torque_location])
+        with dpg.group(horizontal=True):
+            for i in range(newNumModules):
+                addPlot(configName + " Torque Joint" + str(i), "Time", "Torque", plot_t[dataCategories * i + torque_location],
+                        plot_datay[dataCategories * i + torque_location])
     with dpg.tree_node(label="Velocities", parent=configName + "_plots"):
-        for i in range(newNumModules):
-            addPlot(configName + " Velocity Joint" + str(i), "Time", "Velocity", plot_t[dataCategories * i + velocity_location],
-                    plot_datay[dataCategories * i + velocity_location])
+        with dpg.group(horizontal=True):
+            for i in range(newNumModules):
+                addPlot(configName + " Velocity Joint" + str(i), "Time", "Velocity", plot_t[dataCategories * i + velocity_location],
+                        plot_datay[dataCategories * i + velocity_location])
     plotMade = True
 
 
@@ -374,10 +381,6 @@ def update_custom():  # callback for updating custom window buttons based on the
             dpg.add_input_float(label="Joint " + str(i), tag="cus_joint" + str(i), default_value=0, step=0.01)
             dpg.add_button(label="Set", callback=sendSerialInput, user_data=["cus_joint" + str(i), "setJointPos", i],
                            tag="cus_set" + str(i))
-
-    dpg.delete_item("cus_plots")
-    with dpg.collapsing_header(label="Data Collection", tag="cus_plots", parent="cus_window"):
-        dpg.add_text("Live Data from Robot")
 
     numOfDataSets = newNumModules * dataCategories
     initializeDatasets(numOfDataSets)
