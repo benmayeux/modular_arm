@@ -17,7 +17,8 @@ class commandSender():
         self.arduino.write(bytes(x,'utf-8'))
 
     def read(self):
-        data = self.arduino.read_all()
+        # data = self.arduino.read_all()
+        data = self.arduino.read_until(expected=bytes("\n", 'utf-8'))
         return data
 
     def close(self):
