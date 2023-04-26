@@ -25,6 +25,22 @@ matplotInteract = False  # for rendering the interactive matplot
 remakePyPlot = False  # to remake the plot inside te main thread (callbacks are separate threads)
 plotMade = False  # to prevent update from happening before plots are created
 
+# All the supported models, key = model name, first value = number of modules, second value = robot model
+# NOTE: if you want to add a menu image for that model, go add it in dpg.texture_registry
+supportedModels = {"RRR": [3, rtb.DHRobot([
+            rtb.RevoluteDH(d=0.333, alpha=math.pi / 2),
+            rtb.RevoluteDH(a=0.333),
+            rtb.RevoluteDH(a=0.333)
+        ], name="RRR")],
+                    "6DOF": [6, rtb.DHRobot([
+            rtb.RevoluteDH(d=0.333, alpha=math.pi / 2),
+            rtb.RevoluteDH(a=0.333),
+            rtb.RevoluteDH(a=0.333),
+            rtb.RevoluteDH(a=1),
+            rtb.RevoluteDH(a=1),
+            rtb.RevoluteDH(a=1)
+        ], name="6DOF")]}
+
 dpg.create_context()  # important line needed at the beginning of every dpg script
 
 commsOpen = False
@@ -91,13 +107,13 @@ def makeRobot(q):
     # print(modelType)
     global robot, pyplot, remakePyPlot
 
-    if modelType == "RRR":
-        robot = rtb.DHRobot([
-            rtb.RevoluteDH(d=0.333, alpha=math.pi / 2),
-            rtb.RevoluteDH(a=0.333),
-            rtb.RevoluteDH(a=0.333)
-        ], name="RRR")
-        robot.q = q
+    for model in supportedModels:
+        if model == modelType:
+            try:
+                robot = supportedModels[model][1]
+                robot.q = q
+            except:
+                print("No model setup")
 
     remakePyPlot = True
 
@@ -311,12 +327,16 @@ def window_change(sender, app_data, user_data):  # callback for changing windows
     dpg.configure_item(newWindow, show=True)
     dpg.set_primary_window(user_data[1], True)
 
-    global modelType, numOfDataSets, dataCategories, newNumModules, plotMade
+    global modelType, numOfDataSets, dataCategories, newNumModules, plotMade, supportedModels
     plotMade = False
-    if newWindow == "RRR_window":
-        initializeSupportedWindowVariables("RRR", 3)  # for supported configs
 
-    elif newWindow == "cus_window":
+    for model in supportedModels:
+        if newWindow == model+"_window":
+            initializeSupportedWindowVariables(model, supportedModels[model][0])
+    # if newWindow == "RRR_window":
+    #     initializeSupportedWindowVariables("RRR", 3)  # for supported configs
+
+    if newWindow == "cus_window":
         modelType = "cus"
 
     elif newWindow == "Primary Window":
@@ -393,6 +413,25 @@ def update_plot(name, x_data, y_data):
     dpg.fit_axis_data(name + "_x_axis")
 
 
+def createSupportedWindow(modelName, numModules):
+    with dpg.window(label=modelName, modal=False, show=False, tag=modelName+"_window", no_title_bar=False):
+        addMenubar()
+        dpg.add_button(label="Back", callback=window_change, user_data=[modelName+"_window", "Primary Window"])
+        dpg.add_separator()
+
+        addJointControlInput(modelName, numModules)
+        addTaskSpaceInput(modelName)
+
+        with dpg.collapsing_header(label="Robot Simulation"):
+            dpg.add_image("matplot")
+            with dpg.group(horizontal=True):
+                # dpg.add_button(label="test", callback=updateMatPlot)
+                dpg.add_button(label="interact", callback=windowMatPlot)
+
+        with dpg.collapsing_header(label="Data Collection", tag=modelName+"_plots"):  # graphs
+            dpg.add_text("Live Data from Robot")
+
+
 """GUI structure"""
 
 # load images
@@ -412,33 +451,24 @@ with dpg.window(tag="Primary Window"):
     addMenubar()
     dpg.add_text("Select your arm config")
     dpg.add_separator()
+
     with dpg.group(horizontal=True):
-        with dpg.group():
-            dpg.add_text("RRR")
-            dpg.add_image("RRR_image")
-            dpg.add_button(label="Select###RRR", callback=window_change, user_data=["Primary Window", "RRR_window"])
+        for model in supportedModels:
+            with dpg.group():
+                dpg.add_text(model)
+                try:
+                    dpg.add_image(model+"_image")
+                except:
+                    print("No such image")
+                dpg.add_button(label="Select###"+model, callback=window_change, user_data=["Primary Window", model+"_window"])
 
         with dpg.group():
             dpg.add_text("Custom")
             dpg.add_image("cus_image")
             dpg.add_button(label="Select###cus", callback=window_change, user_data=["Primary Window", "cus_window"])
 
-with dpg.window(label="RRR", modal=False, show=False, tag="RRR_window", no_title_bar=False):
-    addMenubar()
-    dpg.add_button(label="Back", callback=window_change, user_data=["RRR_window", "Primary Window"])
-    dpg.add_separator()
-
-    addJointControlInput("RRR", 3)
-    addTaskSpaceInput("RRR")
-
-    with dpg.collapsing_header(label="Robot Simulation"):
-        dpg.add_image("matplot")
-        with dpg.group(horizontal=True):
-            # dpg.add_button(label="test", callback=updateMatPlot)
-            dpg.add_button(label="interact", callback=windowMatPlot)
-
-    with dpg.collapsing_header(label="Data Collection", tag="RRR_plots"):  # graphs
-        dpg.add_text("Live Data from Robot")
+for model in supportedModels:
+    createSupportedWindow(model, supportedModels[model][0])
 
 with dpg.window(label="Custom", show=False, tag="cus_window"):
     addMenubar()
