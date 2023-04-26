@@ -96,7 +96,7 @@ namespace base {
   }
 
   Command Base::sendCarouselPosition(int16_t* data, int length, int16_t* dataOut) {
-    return sendCarouselCommand(CommandType::POSITION_WRITE_CAROUSEL | CommandType::RETURN_POSITION | CommandType::RETURN_EFFORT , data, dataOut, 2, length);
+    return sendCarouselCommand((CommandType)(CommandType::POSITION_WRITE_CAROUSEL | CommandType::RETURN_POSITION | CommandType::RETURN_EFFORT), data, dataOut, 2, length);
   }
 
   // TODO: actual IK
