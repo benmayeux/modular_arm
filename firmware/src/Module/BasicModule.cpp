@@ -156,7 +156,7 @@ void BasicModule::controlLoopPosition(bool Reset){
         this->readyToUpdatePID = false; // Reset flag
     }
 
-    this->setEffort(P+I+D); // Set motor effort (argument is limited to int8_t)
+    this->setEffortPrivate(P+I+D); // Set motor effort (argument is limited to int8_t)
 }
 
 
@@ -216,48 +216,50 @@ void BasicModule::setup(Stream* in, Stream* out){
     // Set initial mode (disabled)
         this->mode = MODE_DISABLE;
         this->dataBus = UARTBus(this, in, out);
+
+    // No longer pulling from flash
     // Pull calibration data from flash
         // Begin EEPROM
-#ifdef SIMULATION
-        EEPROM.begin();
-#else
-        EEPROM.begin(4);
-#endif
+// #ifdef SIMULATION
+//         EEPROM.begin();
+// #else
+//         EEPROM.begin(4);
+// #endif
 
-        // Read values from flash and format into 16 bit unsigned integers
-        uint16_t minPotRange = read16BitFromEEPROM(0,1);
-        uint16_t maxPotRange = read16BitFromEEPROM(2,3);
+//         // Read values from flash and format into 16 bit unsigned integers
+//         uint16_t minPotRange = read16BitFromEEPROM(0,1);
+//         uint16_t maxPotRange = read16BitFromEEPROM(2,3);
 
-        // Check that the minPotRange is reasonable, and update in EEPROM to default value if it is not reasonable
-        DEBUG_PRINT("minPotRange read from flash: ");
-        DEBUG_PRINT(minPotRange);
-        if(minPotRange > 2048){// Check that value is reasonable (MUST be less than 2048). If it is not, update to default
-            minPotRange = 1024; // default is from 1/4 of rotation to 3/4 of rotation of potentiometer
-            DEBUG_PRINT("Updated minPotRange to: ");
-            DEBUG_PRINT(minPotRange);
+//         // Check that the minPotRange is reasonable, and update in EEPROM to default value if it is not reasonable
+//         DEBUG_PRINT("minPotRange read from flash: ");
+//         DEBUG_PRINT(minPotRange);
+//         if(minPotRange > 2048){// Check that value is reasonable (MUST be less than 2048). If it is not, update to default
+//             minPotRange = 1024; // default is from 1/4 of rotation to 3/4 of rotation of potentiometer
+//             DEBUG_PRINT("Updated minPotRange to: ");
+//             DEBUG_PRINT(minPotRange);
 
-            if(save16BitToEEPROM(minPotRange,0,1)){ // Save the default value to EEPROM
-                DEBUG_PRINT("minPotRange saved to EEPROM");
-            }else{
-                DEBUG_PRINT("minPotRange FAILED to save to EEPROM");
-            }
-        }
-        this->minPotentiometerRange = minPotRange;
+//             if(save16BitToEEPROM(minPotRange,0,1)){ // Save the default value to EEPROM
+//                 DEBUG_PRINT("minPotRange saved to EEPROM");
+//             }else{
+//                 DEBUG_PRINT("minPotRange FAILED to save to EEPROM");
+//             }
+//         }
+//         this->minPotentiometerRange = minPotRange;
 
-        DEBUG_PRINT("maxPotRange read from flash: ");
-        DEBUG_PRINT(maxPotRange);
-        if(maxPotRange >= 4095 or maxPotRange <= 2048){// If the value hasnt been saved yet, or was saved/read incorrect, or is well below a reasonable value, set it to default
-            maxPotRange = 3072; // default is from 1/4 of rotation to 3/4 of rotation
-            DEBUG_PRINT("Updated maxPotRange to: ");
-            DEBUG_PRINT(maxPotRange);
+//         DEBUG_PRINT("maxPotRange read from flash: ");
+//         DEBUG_PRINT(maxPotRange);
+//         if(maxPotRange >= 4095 or maxPotRange <= 2048){// If the value hasnt been saved yet, or was saved/read incorrect, or is well below a reasonable value, set it to default
+//             maxPotRange = 3072; // default is from 1/4 of rotation to 3/4 of rotation
+//             DEBUG_PRINT("Updated maxPotRange to: ");
+//             DEBUG_PRINT(maxPotRange);
 
-            if(save16BitToEEPROM(maxPotRange,2,3)){
-                DEBUG_PRINT("maxPotRange saved to EEPROM");
-            }else{
-                DEBUG_PRINT("maxPotRange FAILED to save to EEPROM");
-            }
-        }
-        this->maxPotentiometerRange = maxPotRange;
+//             if(save16BitToEEPROM(maxPotRange,2,3)){
+//                 DEBUG_PRINT("maxPotRange saved to EEPROM");
+//             }else{
+//                 DEBUG_PRINT("maxPotRange FAILED to save to EEPROM");
+//             }
+//         }
+//         this->maxPotentiometerRange = maxPotRange;
 
     // Determine and set the orientation flag
     // Confirm that you can digitalRead in the setup loop
@@ -410,7 +412,7 @@ void BasicModule::updatePosVelAcc(){
     // If the control loop time has passed,
     if(millis() - this->lastTimeCalculated > this->controlLoop_ms){
         // Read the raw potentiometer value
-        this->rawPotentiometerVal = analogRead(this->potentiometerPin);
+        this->rawPotentiometerVal = 4095 - analogRead(this->potentiometerPin);
 
         // Save the last measured value into the lastPositionCentidegrees attribute
         this->lastPositionCentidegrees = this->currentPositionCentidegrees;
