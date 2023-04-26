@@ -6,11 +6,11 @@
 
 /**
  * @brief Implemented in UARTBus clients to forward data on-demand
- * 
+ *
  */
 class UARTBusDataDelegate {
 public:
-    virtual int16_t fetchData(CommandType command) = 0;
+    virtual byte fetchData(CommandType command, int16_t* dataBuffer) = 0;
     virtual Configuration getConfiguration() = 0;
 };
 

@@ -29,7 +29,6 @@ void setup() {
   }
   for (int i = 0; i<N_JOINTS; i++) {
     modules[i] = new BasicModule(14,4,23); // TODO: set pins accordingly
-
     Configuration c = Configuration();
     c.length = i+1; // TODO: get length
     c.posMax = modules[i]->getMaxPotRange();

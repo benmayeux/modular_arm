@@ -35,15 +35,35 @@ class UARTBus {
       serialPort->write((uint8_t*)&data, sizeof(data));
     }
 
-    template <typename T> T leftShiftBus(int size, T data){
-      T val = receiveData<T>();
-      size--;
-      while(size--) {
-        T v = receiveData<T>();;
-        sendData(v);
+    /**
+     * @brief shift through [in, in, out, out, out]
+     * in this case, nJoints = 5
+     * address = 4
+     * take one in off to [in, out, out, out]
+     *    send one in
+     *    send 3 outs
+     *    send 1 out of own
+     * 
+     * @tparam TIN 
+     * @tparam TOUT 
+     * @param nJoints 
+     * @param data 
+     * @return TOUT 
+     */
+    byte leftShiftBus(int nJoints, int16_t* dataIn, byte nDataIn, int16_t* dataOut, byte nDataOut) {
+      for (int i = 0; i < nDataIn; i++) {
+        dataIn[i] = receiveData<int16_t>();
       }
-      sendData(val);
-      return val;
+
+      int nForwardWords = nDataOut * (address - 1) + nDataIn * (nJoints - address);
+      while (nForwardWords--) {
+        sendData(receiveData<int16_t>());
+      }
+
+      for (int i = 0; i < nDataOut; i++) {
+        sendData(dataOut[i]);
+      }
+      return nDataIn;
     }
 
     /**

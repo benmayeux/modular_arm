@@ -67,42 +67,43 @@
       currentCommand.command = CommandType::NOOP;
       while(serialPort->available()) {
           currentCommand = receiveCommand();
-          DEBUG_PRINT("received " + (String)currentCommand.command);
-         
+
           // Configure Bus
           if (currentCommand.command == CommandType::CONFIGURE) {
-            DEBUG_PRINT("Starting configure...");
+            DEBUG_PRINT((String) address + ": Starting configure...");
             address = currentCommand.address++;
             sendCommand(currentCommand);
             Configuration c = delegate->getConfiguration();
-            DEBUG_PRINT("forwarding");
             forwardAndAppend(c, address);
             currentCommand.command = CommandType::NOOP;
+            DEBUG_PRINT((String) address + ": Done!");
             return currentCommand;
           }
 
-          // For this joint 
+          // For this joint
           if (currentCommand.address == address) {
             currentCommand = currentCommand;
             Command forwarded = Command(currentCommand);
-            forwarded.data = delegate->fetchData(currentCommand.command);
+            delegate->fetchData(currentCommand.command, forwarded.data);
             sendCommand(forwarded);
             return currentCommand;
           }
 
           if (currentCommand.command & CAROUSEL) {
-            int size = currentCommand.data;
+            int nJoints = (int)currentCommand.data[0];
             // Forward original command
             sendCommand(currentCommand);
+            int16_t* dataBuffer = new int16_t[currentCommand.getNReturn()];
+            byte nDataOut = delegate->fetchData(currentCommand.command, dataBuffer);
+            leftShiftBus(nJoints, currentCommand.data, 1, dataBuffer, nDataOut);
+            delete[] dataBuffer;
 
             // Forward data
-            currentCommand.data = leftShiftBus(size, delegate->fetchData(currentCommand.command));
             return currentCommand;
           }
 
           // Forward
           sendCommand(currentCommand);
-          DEBUG_PRINT("forwarding to: " + (String)currentCommand.address);
           currentCommand.command = CommandType::NOOP;
           return currentCommand;
         }

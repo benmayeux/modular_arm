@@ -17,7 +17,7 @@ enum CommandType {
     CAROUSEL = 1 << 3,
 
     // bit 4-6
-    RETURN_MASK = 0x60,
+    RETURN_MASK = 0x70,
     RETURN_POSITION = 1 << 4,
     RETURN_EFFORT = 1 << 5,
     RETURN_VELOCITY = 1 << 6,
@@ -36,13 +36,24 @@ enum CommandType {
 
 struct Command {
     CommandType command;
-    int16_t data;
+    int16_t data[4];
     byte address;
+    byte nDataOut;
     CommandType getCommandTarget() {
         return (CommandType) (command & COMMANDTYPE_MASK);
     }
     bool isCarousel() {
         return command & CAROUSEL;
+    }
+    int getNReturn() {
+        byte c = ((byte)command & (byte)RETURN_MASK);
+        int count = 0;
+        for (int bit = 1; bit < 1 << 8; bit = bit << 1) {
+            if (bit & c) {
+                count++;
+            }
+        }
+        return count;
     }
 };
 

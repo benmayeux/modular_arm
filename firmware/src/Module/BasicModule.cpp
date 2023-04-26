@@ -39,21 +39,22 @@ void BasicModule::setConfiguration(Configuration c) {
     configuration = c;
 }
 
-int16_t BasicModule::fetchData(CommandType command) {
-
-    command = (CommandType)(command & CommandType::RETURN_MASK);
-
-    switch(command) {
-        case CommandType::RETURN_POSITION:
-            return this->getPosition();
-        case CommandType::RETURN_EFFORT:
-            return this->getEffort();
-        case CommandType::RETURN_VELOCITY:
-            return this->getVelocity();
-        default:
-            return this->getPosition();
-            break;
+byte BasicModule::fetchData(CommandType command, int16_t* data) {
+    byte nData = 0;
+    CommandType returnType = (CommandType)(command & CommandType::RETURN_MASK);
+    if (returnType & CommandType::RETURN_POSITION) {
+        data[nData] = this->getPosition();
+        nData++;
     }
+    if (returnType & CommandType::RETURN_EFFORT) {
+        data[nData] = this->getEffort();
+        nData++;
+    }
+    if (returnType & CommandType::RETURN_VELOCITY) {
+        data[nData] = this->getVelocity();
+        nData++;
+    }
+    return nData;
 }
 
 // TODO: get actual values from EEPROM?
@@ -64,14 +65,14 @@ Configuration BasicModule::getConfiguration() {
 void BasicModule::processCommand(Command c) {
     switch(c.getCommandTarget()) {
         case CommandType::EFFORT:
-            DEBUG_PRINT("setting effort to " + (String)c.data);
+            DEBUG_PRINT((String) dataBus.address + ": setting effort to " + (String)c.data[0]);
             this->mode = MODE_EFFORT;
-            this->setEffort(c.data);
+            this->setEffort(c.data[0]);
             break;
         case CommandType::POSITION:
-            DEBUG_PRINT("setting pos to " + (String)c.data);
+            DEBUG_PRINT((String) dataBus.address + ": setting pos to " + (String)c.data[0]);
             this->mode = MODE_POSITION;
-            this->setPosition(c.data);
+            this->setPosition(c.data[0]);
             break;
         default:
             break;
@@ -153,7 +154,7 @@ void BasicModule::controlLoopPosition(bool Reset){
         this->readyToUpdatePID = false; // Reset flag
     }
 
-    this->setEffort(P+I+D); // Set motor effort (argument is limited to int8_t)
+    this->setEffortPrivate(P+I+D); // Set motor effort (argument is limited to int8_t)
 }
 
 

@@ -5,10 +5,10 @@
 
 struct Configuration {
     float length;
-    int orientation;
-    int torqueLimit;
-    int posMin;
-    int posMax;
+    bool orientation;
+    uint16_t torqueLimit;
+    int16_t posMin;
+    int16_t posMax;
 };
 
 #endif
