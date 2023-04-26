@@ -28,7 +28,6 @@ void loop() {
   if(millis() - lastTime > 3000){
     effort = -effort;
     thisModule.setEffort(effort);
-
     lastTime = millis();
   }
 

@@ -118,7 +118,9 @@ namespace base {
         break;
       case SerialInputCommandType::SET_JOINT_POSITION:
         c = sendPosition(command.data[0], command.data[1]);
-        n = c.getNReturn(); 
+        n = c.getNReturn();
+        Serial.println("1,JOINT,POS");
+        Serial.print((String)command.data[0] + ",");
         for (int i = 0; i < c.getNReturn(); i++) {
           Serial.println(c.data[i]);
         }
@@ -126,8 +128,13 @@ namespace base {
       case SerialInputCommandType::SET_TASK_POSITION:
         n = calculateIK(dataBuffer, command.data[0],command.data[1],command.data[2]);
         c = sendCarouselPosition(dataBuffer, n, dataBuffer);
-        for (int i = 0; i < n * c.getNReturn(); i++) {
-          Serial.println(dataBuffer[i]);
+        Serial.println((String)n + ",JOINT,POS,EFF,");
+        for (int i = 0; i < n; i++) {
+          Serial.print((String)i + ",");
+          for (int j = 0; j < c.getNReturn(); j++) {
+            Serial.print((String)dataBuffer[2*i + j] + ",");
+          }
+          Serial.println();
         }
         break;
       case SerialInputCommandType::INVALID:
