@@ -90,10 +90,10 @@ class BasicModule: public UARTBusDataDelegate {
         
         // Setup/Calibration Data:---------------------------------------------------------------
         // Maximum value of the potentiometer to stay within physical range of movement, Pulled from Flash during setup()
-        uint16_t maxPotentiometerRange = 3071; // Pull this from flash on startup (Defaults to 3072 if hasnt had a value yet)
+        uint16_t maxPotentiometerRange = 3050; // Pull this from flash on startup (Defaults to 3072 if hasnt had a value yet)
 
         // Minimum value of the potentiometer to stay within physical range of movement, Pulled from Flash on setup()
-        uint16_t minPotentiometerRange = 1023; // Pull this from flash on startup (Defaults to 1024 if hasnt had a value yet)
+        uint16_t minPotentiometerRange = 765; // Pull this from flash on startup (Defaults to 1024 if hasnt had a value yet)
 
         // The orientation of the robot, determined during setup()
         bool orientation;
@@ -101,10 +101,10 @@ class BasicModule: public UARTBusDataDelegate {
         // TODO: determine the min and max angles from CAD, then confirm them in the real world (Used to map the calibration values)
         // TODO: Limit angle from -90 to 90 to prevent collisions with other modules. Ensure that there are no other ways for modules to collide based on orientation.
         // Minimum angle reached during calibration (When moving part is contacting stationary part)
-        const int16_t minAngle = -120; // Min angle reached during calibration to the nearest degree
+        const int16_t minAngle = -90; // Min angle reached during calibration to the nearest degree
 
         // Maximum angle reached during calibration (When moving part is contacting stationary part)
-        const int16_t maxAngle = 120; // Max angle reached during calibration to the nearest degree
+        const int16_t maxAngle = 90; // Max angle reached during calibration to the nearest degree
         
         
         // Control Loop Variables/Methods:------------------------------------------------------
