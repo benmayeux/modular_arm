@@ -24,6 +24,7 @@ start_time = round(time.time()*1000)  # for keeping track of time in plots
 matplotInteract = False  # for rendering the interactive matplot
 remakePyPlot = False  # to remake the plot inside te main thread (callbacks are separate threads)
 plotMade = False  # to prevent update from happening before plots are created
+pausedReadings = False  # to pause serial readings from updating plots
 
 # All the supported models, key = model name, first value = number of modules, second value = robot model
 # NOTE: if you want to add a menu image for that model, go add it in dpg.texture_registry
@@ -220,12 +221,14 @@ def sendSerialInput(sender, app_data, user_data):  # function for obtaining data
             return
         x = commandName + "," + str(user_data[2]) + "," + str(relatedValue/0.017453*100)
 
-        # update matplot for robot sim
-        currentQ = robot.q
-        # print("Old Q: " + str(currentQ))
-        currentQ[user_data[2]] = relatedValue
-        # print("New Q: " + str(currentQ))
-        makeRobot(currentQ)
+        if modelType != "cus":
+            # update matplot for robot sim
+            currentQ = robot.q
+            # print("Old Q: " + str(currentQ))
+            currentQ[user_data[2]] = relatedValue
+            # print("New Q: " + str(currentQ))
+            makeRobot(currentQ)
+
     else:
         x = ""
 
@@ -259,6 +262,7 @@ def addMenubar():  # makes the menu bar, such that it's consistent across window
             dpg.add_menu_item(label="Exit", callback=lambda: dpg.destroy_context())
         with dpg.menu(label="Settings"):
             dpg.add_menu_item(label="Toggle Fullscreen", callback=lambda: dpg.toggle_viewport_fullscreen())
+            dpg.add_menu_item(label="Pause Plots", callback=pausePlots)
 
 
 def addJointControlInput(config_name, n_modules):
@@ -298,12 +302,20 @@ def addPlot(name, x_name, y_name, x_data, y_data):
         dpg.add_plot_axis(dpg.mvYAxis, label=y_name, tag=name + "_y_axis")
 
         # series belong to a y axis
-        if len(y_data) == 1:
+        # if len(y_data) == 1:
+        #     dpg.add_line_series(x_data, y_data, label=y_name, parent=name + "_y_axis", tag=name)
+        # else:
+        #     for i in range(len(y_data)):
+        #         try:
+        #             dpg.add_line_series(x_data, y_data[i], label=y_name + " " + str(i + 1), parent=name + "_y_axis",
+        #                                 tag=name + str(i + 1))
+        #         except:
+        #             print(x_data)
+        #             print(y_data[i])
+        #             print(name)
+        #             print(y_name)
+        if len(y_data) != 0:
             dpg.add_line_series(x_data, y_data, label=y_name, parent=name + "_y_axis", tag=name)
-        else:
-            for i in range(len(y_data)):
-                dpg.add_line_series(x_data, y_data[i], label=y_name + " " + str(i + 1), parent=name + "_y_axis",
-                                    tag=name + str(i + 1))
 
 
 def addPlotSection(configName):
@@ -313,16 +325,30 @@ def addPlotSection(configName):
         dpg.add_text("Live Data from Robot")
 
     global newNumModules, plotMade
+    numberOfPlotsPerRow = 3
     with dpg.tree_node(label="Torques", parent=configName + "_plots"):
-        with dpg.group(horizontal=True):
-            for i in range(newNumModules):
-                addPlot(configName + " Torque Joint" + str(i), "Time", "Torque", plot_t[dataCategories * i + torque_location],
-                        plot_datay[dataCategories * i + torque_location])
+        moduleNumber = 0  # to keep track of which module plot is being created
+        for i in range(math.ceil(newNumModules/numberOfPlotsPerRow)):
+            with dpg.group(horizontal=True):
+                for j in range(numberOfPlotsPerRow):
+                    if moduleNumber <= newNumModules-1:
+                        addPlot(configName + " Torque Joint" + str(moduleNumber), "Time", "Torque", plot_t[dataCategories * moduleNumber + torque_location],
+                                plot_datay[dataCategories * moduleNumber + torque_location])
+                    moduleNumber += 1
     with dpg.tree_node(label="Velocities", parent=configName + "_plots"):
-        with dpg.group(horizontal=True):
-            for i in range(newNumModules):
-                addPlot(configName + " Velocity Joint" + str(i), "Time", "Velocity", plot_t[dataCategories * i + velocity_location],
-                        plot_datay[dataCategories * i + velocity_location])
+        moduleNumber = 0  # to keep track of which module plot is being created
+        for i in range(math.ceil(newNumModules/numberOfPlotsPerRow)):
+            with dpg.group(horizontal=True):
+                for j in range(numberOfPlotsPerRow):
+                    if moduleNumber <= newNumModules-1:
+                        addPlot(configName + " Velocity Joint" + str(moduleNumber), "Time", "Velocity",
+                                plot_t[dataCategories * moduleNumber + velocity_location],
+                                plot_datay[dataCategories * moduleNumber + velocity_location])
+                    moduleNumber += 1
+        # with dpg.group(horizontal=True):
+        #     for i in range(newNumModules):
+        #         addPlot(configName + " Velocity Joint" + str(i), "Time", "Velocity", plot_t[dataCategories * i + velocity_location],
+        #                 plot_datay[dataCategories * i + velocity_location])
     plotMade = True
 
 
@@ -345,6 +371,7 @@ def window_change(sender, app_data, user_data):  # callback for changing windows
 
     if newWindow == "cus_window":
         modelType = "cus"
+        initialize_custom()
 
     elif newWindow == "Primary Window":
         modelType = None
@@ -360,6 +387,16 @@ def initializeSupportedWindowVariables(modelName, numModules):
     initializeDatasets(numOfDataSets)
     addPlotSection(modelType)
 
+def initialize_custom():
+    dpg.delete_item("cus_joints")
+    dpg.delete_item("cus_plots")
+
+    with dpg.collapsing_header(label="Joint Control", default_open=True, tag="cus_joints", parent="cus_window"):
+        dpg.add_text("Press Scan Parts", tag="starting_cus")
+
+    with dpg.collapsing_header(label="Data Collection", tag="cus_plots", parent="cus_window"):
+        dpg.add_text("Live Data from Robot")
+
 
 def update_custom():  # callback for updating custom window buttons based on the number of modules
     global newNumModules, dataCategories, numOfDataSets, serialModules
@@ -370,6 +407,8 @@ def update_custom():  # callback for updating custom window buttons based on the
         content = file.read()
         file.close()
         newNumModules = int(content)
+
+    print("New num of modules: " + str(newNumModules))
 
     dpg.delete_item("starting_cus")  # remove the text that informed user what to do at start
     global prevNumModules
@@ -434,6 +473,10 @@ def createSupportedWindow(modelName, numModules):
         with dpg.collapsing_header(label="Data Collection", tag=modelName+"_plots"):  # graphs
             dpg.add_text("Live Data from Robot")
 
+def pausePlots():
+    global pausedReadings
+    pausedReadings = not pausedReadings
+
 
 """GUI structure"""
 
@@ -480,11 +523,7 @@ with dpg.window(label="Custom", show=False, tag="cus_window"):
         dpg.add_button(label="Scan Parts", callback=update_custom)  # where the joint number update happens
     dpg.add_separator()
 
-    with dpg.collapsing_header(label="Joint Control", default_open=True, tag="cus_joints"):
-        dpg.add_text("Press Scan Parts", tag="starting_cus")
-
-    with dpg.collapsing_header(label="Data Collection", tag="cus_plots"):
-        dpg.add_text("Live Data from Robot")
+    initialize_custom()
 
 """Final stuff to display GUI"""
 dpg.create_viewport(title='Modular Arm', width=600, height=300)  # window created by OS to show GUI windows
@@ -530,11 +569,12 @@ while dpg.is_dearpygui_running():  # this starts the runtime loop
             update_fake_data()  # for dynamic graph testing
 
         if modelType is not None and plotMade:
-            for i in range(int(newNumModules)):  # for each joint
-                update_plot(modelType + " Torque Joint" + str(i), plot_t[dataCategories * i + torque_location],
-                            plot_datay[dataCategories * i + torque_location])  # custom function to update a plot
-                update_plot(modelType + " Velocity Joint" + str(i), plot_t[dataCategories * i + velocity_location],
-                            plot_datay[dataCategories * i + velocity_location])
+            if not pausedReadings:
+                for i in range(int(newNumModules)):  # for each joint
+                    update_plot(modelType + " Torque Joint" + str(i), plot_t[dataCategories * i + torque_location],
+                                plot_datay[dataCategories * i + torque_location])  # custom function to update a plot
+                    update_plot(modelType + " Velocity Joint" + str(i), plot_t[dataCategories * i + velocity_location],
+                                plot_datay[dataCategories * i + velocity_location])
 
         frames += 1  # keeping track of frames
         dpg.render_dearpygui_frame()  # render the frame
