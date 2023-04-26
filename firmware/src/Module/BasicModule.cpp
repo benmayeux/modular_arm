@@ -154,7 +154,7 @@ void BasicModule::controlLoopPosition(bool Reset){
         this->readyToUpdatePID = false; // Reset flag
     }
 
-    this->setEffort(P+I+D); // Set motor effort (argument is limited to int8_t)
+    this->setEffortPrivate(P+I+D); // Set motor effort (argument is limited to int8_t)
 }
 
 
