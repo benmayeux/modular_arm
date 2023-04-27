@@ -92,11 +92,11 @@ namespace base {
   }
 
   Command Base::sendPosition(int address, int16_t data) {
-    return sendToJoint((CommandType)(CommandType::POSITION_WRITE | CommandType::RETURN_POSITION), address, data);
+    return sendToJoint((CommandType)(CommandType::POSITION_WRITE | CommandType::RETURN_POSITION | CommandType::RETURN_VELOCITY | CommandType::RETURN_EFFORT), address, data);
   }
 
   Command Base::sendCarouselPosition(int16_t* data, int length, int16_t* dataOut) {
-    return sendCarouselCommand((CommandType)(CommandType::POSITION_WRITE_CAROUSEL | CommandType::RETURN_POSITION | CommandType::RETURN_EFFORT), data, dataOut, 2, length);
+    return sendCarouselCommand((CommandType)(CommandType::POSITION_WRITE_CAROUSEL | CommandType::RETURN_POSITION | CommandType::RETURN_EFFORT | CommandType::RETURN_VELOCITY), data, dataOut, 3, length);
   }
 
   // TODO: actual IK
@@ -119,20 +119,22 @@ namespace base {
       case SerialInputCommandType::SET_JOINT_POSITION:
         c = sendPosition(command.data[0], command.data[1]);
         n = c.getNReturn();
-        Serial.println("1,JOINT,POS");
-        Serial.print((String)command.data[0] + ",");
-        for (int i = 0; i < c.getNReturn(); i++) {
-          Serial.println(c.data[i]);
+        Serial.println("1,JOINT,POS,EFF,VEL");
+        Serial.print((String)c.address + ",");
+        for (int i = 0; i < n; i++) {
+          Serial.print(c.data[i]);
+          Serial.print(",");
         }
+        Serial.println();
         break;
       case SerialInputCommandType::SET_TASK_POSITION:
         n = calculateIK(dataBuffer, command.data[0],command.data[1],command.data[2]);
         c = sendCarouselPosition(dataBuffer, n, dataBuffer);
-        Serial.println((String)n + ",JOINT,POS,EFF,");
+        Serial.println((String)n + ",JOINT,POS,EFF,VEL");
         for (int i = 0; i < n; i++) {
           Serial.print((String)i + ",");
           for (int j = 0; j < c.getNReturn(); j++) {
-            Serial.print((String)dataBuffer[2*i + j] + ",");
+            Serial.print((String)dataBuffer[c.getNReturn()*i + j] + ",");
           }
           Serial.println();
         }
