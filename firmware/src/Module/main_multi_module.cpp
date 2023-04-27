@@ -1,7 +1,7 @@
 
 #ifdef MAIN_BASIC_MODULE_MULTI
 #include <Arduino.h>
-#include "BasicModule.h"
+#include "ServoModule.h"
 #include "LoopbackStream.h"
 
 #ifndef N_JOINTS
@@ -10,7 +10,7 @@
 
 // Initialize the module with the correct PWM Pin, Potentiometer Pin, and Orientation Switch Pin
 
-BasicModule* modules[N_JOINTS];
+ServoModule* modules[N_JOINTS];
 LoopbackStream* streams[N_JOINTS-1];
 
 // Used to track when to switch effort
@@ -18,7 +18,7 @@ uint32_t lastTime = millis();
 
 // Set effort: 127 or full effort
 int16_t effort = 127;
-
+int8_t pwn_pins[3] = {13,26,32};
 void setup() {
   
   Serial.begin(115200);
@@ -33,11 +33,11 @@ void setup() {
     streams[i] = new LoopbackStream();
   }
   for (int i = 0; i<N_JOINTS; i++) {
-    modules[i] = new BasicModule(14,4,23); // TODO: set pins accordingly
+    modules[i] = new ServoModule(pwn_pins[i],23); // TODO: set pins accordingly
     Configuration c = Configuration();
     c.length = i+1; // TODO: get length
-    c.posMax = modules[i]->getMaxPotRange();
-    c.posMin = modules[i]->getMinPotRange();
+    c.posMax = modules[i]->getMaxPotation();
+    c.posMin = modules[i]->getMinPotation();
     c.orientation = modules[i]->getArmOrientation();
     modules[i]->setConfiguration(c);
 
