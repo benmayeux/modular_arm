@@ -216,6 +216,7 @@ void BasicModule::setup(Stream* in, Stream* out){
     // Set initial mode (disabled)
         this->mode = MODE_DISABLE;
         this->dataBus = UARTBus(this, in, out);
+        DEBUG_PRINT("SETUP...");
 
     // No longer pulling from flash
     // Pull calibration data from flash

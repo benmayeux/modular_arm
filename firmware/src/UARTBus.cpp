@@ -18,7 +18,6 @@
     UARTBus::UARTBus(UARTBusDataDelegate* delegateIn, Stream* in, Stream* out) {
       delegate = delegateIn;
       serialPort = (HardwareSerial*)(new SerialAdapter(in, out));
-      serialPort->begin(115200);
     }
 
     UARTBus::UARTBus() {

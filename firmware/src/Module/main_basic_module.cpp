@@ -12,12 +12,16 @@ BasicModule thisModule = BasicModule(14,4,23);
 // int16_t effort = 50;
 
 void setup() {
-  // Serial.begin(115200);
-  delay(100);
+  Serial.begin(115200);
   Serial2.begin(115200);
-
-  // Run the module setup (reads calibration data from EEPROM, determines mounting orientation, waits for communication from base module)
   thisModule.setup(&Serial2,&Serial2);
+
+  delay(3000);
+  while(Serial2.available()) {
+    Serial2.read();
+  }
+  delay(3000);
+  // Run the module setup (reads calibration data from EEPROM, determines mounting orientation, waits for communication from base module)
 }
 
 void loop() {
