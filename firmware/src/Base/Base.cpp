@@ -52,22 +52,19 @@ namespace base {
   }
 
 
-  Command Base::sendCarouselCommand(CommandType commandType, int16_t* dataIn, int16_t* dataOut, int nDataOut, int length) {
-    DEBUG_PRINT("sending carousel: " + (String)commandType + ": " + (String)length);
+  Command Base::sendCarouselCommand(CommandType commandType, int16_t* dataIn, int nDataIn, int16_t* dataOut, int nDataOut) {
+    DEBUG_PRINT("sending carousel: " + (String)commandType + ": " + (String)nJoints);
     Command command = Command();
     command.command = (CommandType)(commandType | CommandType::CAROUSEL);
-    if (length != nJoints) {
-      DEBUG_PRINT("ERROR: size of carousel data does not match number of joints!");
-      return command;
-    }
+
     command.data[0] = nJoints;
     bus.sendCommand(command);
-    for (int i = 0; i < length; i++) {
+    for (int i = 0; i < nJoints * nDataIn; i++) {
       bus.sendData(dataIn[i]);
     }
     command = bus.receiveCommand();
     DEBUG_PRINT(command.command);
-    for (int i = 0; i < length*nDataOut; i++) {
+    for (int i = 0; i < nJoints*nDataOut; i++) {
       dataOut[i] = bus.receiveData<int16_t>();
     }
     return command;
@@ -96,7 +93,11 @@ namespace base {
   }
 
   Command Base::sendCarouselPosition(int16_t* data, int length, int16_t* dataOut) {
-    return sendCarouselCommand((CommandType)(CommandType::POSITION_WRITE_CAROUSEL | CommandType::RETURN_POSITION | CommandType::RETURN_EFFORT | CommandType::RETURN_VELOCITY), data, dataOut, 3, length);
+    return sendCarouselCommand((CommandType)(CommandType::POSITION_WRITE_CAROUSEL | 
+                                             CommandType::RETURN_POSITION | 
+                                             CommandType::RETURN_EFFORT | 
+                                             CommandType::RETURN_VELOCITY), 
+                                             data, 1, dataOut, 3);
   }
 
   // TODO: actual IK
@@ -130,6 +131,23 @@ namespace base {
       case SerialInputCommandType::SET_TASK_POSITION:
         n = calculateIK(dataBuffer, command.data[0],command.data[1],command.data[2]);
         c = sendCarouselPosition(dataBuffer, n, dataBuffer);
+        Serial.println((String)n + ",JOINT,POS,EFF,VEL");
+        for (int i = 0; i < n; i++) {
+          Serial.print((String)i + ",");
+          for (int j = 0; j < c.getNReturn(); j++) {
+            Serial.print((String)dataBuffer[c.getNReturn()*i + j] + ",");
+          }
+          Serial.println();
+        }
+        break;
+      case SerialInputCommandType::POLL:
+        n = nJoints;
+        c = sendCarouselCommand((CommandType)(CommandType::NOOP | 
+                                          CommandType::CAROUSEL | 
+                                          CommandType::RETURN_POSITION | 
+                                          CommandType::RETURN_EFFORT | 
+                                          CommandType::RETURN_VELOCITY), 
+                                        nullptr, 0, dataBuffer, 3);
         Serial.println((String)n + ",JOINT,POS,EFF,VEL");
         for (int i = 0; i < n; i++) {
           Serial.print((String)i + ",");

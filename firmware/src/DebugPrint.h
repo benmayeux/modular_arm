@@ -1,6 +1,5 @@
 #ifndef DEBUG_PRINT_H
 #define DEBUG_PRINT_H
-#define DEBUG_PORT
 #ifdef DEBUG_PORT
   #define _CONCAT(x,y) x##y
   #define CONCAT(x,y) _CONCAT(x,y)

@@ -5,6 +5,7 @@ namespace base {
     enum SerialInputCommandType {
         SET_JOINT_POSITION,
         SET_TASK_POSITION,
+        POLL,
         INVALID,
         RECONFIGURE,
         NONE

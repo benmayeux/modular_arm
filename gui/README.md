@@ -1,6 +1,6 @@
-#GUI
+# GUI
 
-#Setup
+## Setup
 Install the following libraries for python:
 dearpygui
 roboticstoolbox-python

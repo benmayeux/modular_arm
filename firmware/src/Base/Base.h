@@ -19,7 +19,7 @@ namespace base {
       void setup();
       bool fetchConfiguration(int timeout = 10000);
 
-      Command sendCarouselCommand(CommandType commandType, int16_t *dataIn, int16_t *dataOut, int nDataOut, int length);
+      Command sendCarouselCommand(CommandType commandType, int16_t* dataIn, int nDataIn, int16_t* dataOut, int nDataOut);
 
       Command sendToJoint(CommandType commandType, int address, int16_t data);
       Command sendEffort(int address, int16_t data);

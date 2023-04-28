@@ -58,6 +58,11 @@ class UARTBus {
       }
 
       int nForwardWords = nDataOut * (address - 1) + nDataIn * (nJoints - address);
+      DEBUG_PRINT("Forwarding: " + (String)nForwardWords);
+      DEBUG_PRINT(nDataOut);
+      DEBUG_PRINT(address);
+      DEBUG_PRINT(nDataIn);
+      DEBUG_PRINT(nJoints);
       while (nForwardWords--) {
         sendData(receiveData<int16_t>());
       }

@@ -112,7 +112,11 @@
               This->sendCommand(currentCommand);
               int16_t* dataBuffer = new int16_t[currentCommand.getNReturn()];
               byte nDataOut = This->delegate->fetchData(currentCommand.command, dataBuffer);
-              This->leftShiftBus(nJoints, currentCommand.data, 1, dataBuffer, nDataOut);
+              if ((CommandType)(currentCommand.command & COMMANDTYPE_MASK) == NOOP) {
+                This->leftShiftBus(nJoints, nullptr, 0, dataBuffer, nDataOut);
+              } else {
+                This->leftShiftBus(nJoints, currentCommand.data, 1, dataBuffer, nDataOut);
+              }
               delete[] dataBuffer;
 
               // Forward data
