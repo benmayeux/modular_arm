@@ -13,7 +13,7 @@ class UARTBus {
     UARTBusDataDelegate* delegate;
     int address = -1;
     HardwareSerial* serialPort;
-
+    
     int available();
     /**
      * @brief Construct a new UARTBus object
@@ -22,6 +22,8 @@ class UARTBus {
      */
     UARTBus(UARTBusDataDelegate* delegateIn, Stream* in, Stream* out);
     UARTBus();
+
+    void startComms();
 
     /**
      * @brief Sends a command on the bus
@@ -98,6 +100,9 @@ class UARTBus {
      */
     Command receiveCommand();
 
+
+    static void handleCommunicationTask(void* params);
+
     /**
      * @brief Consumes a Configuration object from the bus
      *
@@ -105,12 +110,19 @@ class UARTBus {
      */
     Configuration receiveConfiguration();
 
+    void updateCommand(Command c);
+
+    Command getCurrentCommand();
+
     /**
      * @brief Handles forwarding and data fetching. Returns any new commands to be processed
      *
      * @return Command
      */
     Command handleCommunication();
+
+    private:
+      QueueHandle_t commandQueue = xQueueCreate(100, sizeof(Command));
 };
 
 #endif

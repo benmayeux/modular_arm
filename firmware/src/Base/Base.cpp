@@ -10,7 +10,7 @@ namespace base {
       serialInterface = SerialInterface();
       serialInterface.begin(115200);
       delay(300);
- 
+      DEBUG_PRINT("SETUP");
       bus = UARTBus(0, &Serial2, &Serial2);
       fetchConfiguration();
   }

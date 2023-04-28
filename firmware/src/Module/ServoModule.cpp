@@ -30,7 +30,7 @@
     @param uint8_t mountingOrientationSwitchPin : The GPIO Pin to use to determine the module orientation 
 */
 ServoModule::ServoModule(uint8_t PWMPin, uint8_t mountingOrientationSwitchPin){
-    this->motor.attach(PWMPin);
+    //this->motor.attach(PWMPin);
     this->PWMPin = PWMPin;
     this->mountingOrientationSwitchPin = mountingOrientationSwitchPin;
 }
@@ -242,7 +242,7 @@ void ServoModule::setup(Stream* in, Stream* out){
     // Confirm that you can digitalRead in the setup loop
         pinMode(this->mountingOrientationSwitchPin, INPUT_PULLUP);
         this->orientation = digitalRead(this->mountingOrientationSwitchPin);
-
+        this->dataBus.startComms();
 
     // Set the PWMPin to output
     // this->motor = TalonSR(this->PWMPin);
@@ -253,9 +253,9 @@ void ServoModule::setup(Stream* in, Stream* out){
 
 void ServoModule::loop() {
     // sense
-    this->updatePosVelAcc(); 
+    this->updatePosVelAcc();
     // process
-    Command command = this->dataBus.handleCommunication();
+    Command command = this->dataBus.getCurrentCommand();
     this->processCommand(command);
     // act
     this->stateMachine();

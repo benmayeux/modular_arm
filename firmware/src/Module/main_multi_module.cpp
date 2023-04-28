@@ -26,7 +26,7 @@ void setup() {
   
   delay(3000);
   while(Serial2.available()) {
-    Serial.println(Serial2.read());
+    Serial2.read();
   }
 
   for (int i = 0; i < N_JOINTS -1; i++) {
