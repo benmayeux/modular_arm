@@ -156,7 +156,7 @@ namespace base {
     if (command.commandType != SerialInputCommandType::NONE) {
       executeCommand(command);
     }
-    delay(100);
+    delay(1);
   }
 };
 
