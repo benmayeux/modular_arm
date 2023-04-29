@@ -164,6 +164,7 @@ def update_serial_data():
         #         serialModules = float(line.split(":")[1].strip())
 
         line = cs.arduino.read_until(expected=bytes("\n", 'utf-8')).decode('utf-8')
+
         numOfLines = int(line.split(",")[0].strip())
         global serialModules
         serialModules = numOfLines
@@ -214,12 +215,12 @@ def sendSerialInput(sender, app_data, user_data):  # function for obtaining data
     commandName = user_data[1]
     if commandName == "setTaskPos":
         # x=[0], y =[2], z=[1]
-        x = commandName + "," + str(relatedValue[0]) + "," + str(relatedValue[2]) + "," + str(relatedValue[1])
+        x = commandName + "," + str(relatedValue[0]) + "," + str(relatedValue[2]) + "," + str(relatedValue[1]) + ";"
     elif commandName == "setJointPos":
         if relatedValue > 50:
             warningBox("Warning: Joint Limit Exceeded", "You have exceeded the joint limit, try a new value")
             return
-        x = commandName + "," + str(user_data[2]) + "," + str(relatedValue/0.017453*100)
+        x = commandName + "," + str(user_data[2]) + "," + str(relatedValue/0.017453*100) + ";"
 
         if modelType != "cus":
             # update matplot for robot sim
@@ -234,6 +235,7 @@ def sendSerialInput(sender, app_data, user_data):  # function for obtaining data
 
     if commsOpen:
         cs.write(x)
+
         print("Sent Serial:" + x)
     else:
         print(x)
@@ -563,7 +565,7 @@ while dpg.is_dearpygui_running():  # this starts the runtime loop
     else:
         if commsOpen:
             if frames % 50 == 0:
-                cs.write("poll")
+                cs.write("poll;")
                 update_serial_data()  # for serial reading testing
         else:
             update_fake_data()  # for dynamic graph testing

@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include "SerialInputCommand.h"
 #include "SerialInterface.h"
-
+#include "DebugPrint.h"
 namespace base {
     void SerialInterface::begin(unsigned long baud) {
         Serial.begin(baud);
@@ -12,6 +12,7 @@ namespace base {
         char input[100];
         if (Serial.available()) {
             strcpy(input, Serial.readStringUntil(';').c_str());
+            DEBUG_PRINT(input);
             result.length = 0;
             String inputCommand = strtok(input, ",");
             if (inputCommand == SERIAL_COMMAND_JOINT_POSITION) {
@@ -20,6 +21,10 @@ namespace base {
                 result.commandType = SerialInputCommandType::SET_TASK_POSITION;
             } else if (inputCommand == SERIAL_COMMAND_RECONFIGURE) {
                 result.commandType = SerialInputCommandType::RECONFIGURE;
+            } else if (inputCommand == SERIAL_COMMAND_POLL) {
+                result.commandType = SerialInputCommandType::POLL;
+            } else if (inputCommand == SERIAL_COMMAND_SET_ALL_POSITION) {
+                result.commandType = SerialInputCommandType::SET_ALL_POSITION;
             } else {
                 result.commandType = SerialInputCommandType::INVALID;
                 return result;

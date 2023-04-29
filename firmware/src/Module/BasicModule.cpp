@@ -144,7 +144,7 @@ void BasicModule::controlLoopPosition(bool Reset){
     float P = Err * this->posKp; // Calculate P term
     static float I = 0; // Create static var to hold I
     float D = (Err - lastErr) * posKd; // Calculate D term
-    
+
     if(Reset){ // Reset I term when needed, and exit function
         I = 0;
         return;
@@ -216,7 +216,9 @@ void BasicModule::setup(Stream* in, Stream* out){
     // Set initial mode (disabled)
         this->mode = MODE_DISABLE;
         this->dataBus = UARTBus(this, in, out);
+        DEBUG_PRINT(xPortGetCoreID());
         DEBUG_PRINT("SETUP...");
+        this->dataBus.startComms();
 
     // No longer pulling from flash
     // Pull calibration data from flash
@@ -277,9 +279,9 @@ void BasicModule::setup(Stream* in, Stream* out){
 
 void BasicModule::loop() {
     // sense
-    this->updatePosVelAcc(); 
+    this->updatePosVelAcc();
     // process
-    Command command = this->dataBus.handleCommunication();
+    Command command = this->dataBus.getCurrentCommand();
     this->processCommand(command);
     // act
     this->stateMachine();

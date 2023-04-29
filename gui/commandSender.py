@@ -5,7 +5,7 @@ import time
 class commandSender():
 
     def __init__(self,comPort) -> None:
-        self.arduino = serial.Serial(port='COM' + str(comPort), baudrate=9600, timeout=0.1)
+        self.arduino = serial.Serial(port='COM' + str(comPort), baudrate=115200, timeout=0.1)
 
     # write bytes
     def write_read(self,x):
@@ -42,7 +42,9 @@ def main():
 
         command = input("Enter a command: ") # Taking input from user
         cs.write(command)
-        value = cs.read()
+        time.sleep(1)
+        value = cs.arduino.read_all()
+
         print(str(value, 'utf-8')) # printing the value
 
         if(command == "end"):

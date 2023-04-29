@@ -13,7 +13,7 @@ class UARTBus {
     UARTBusDataDelegate* delegate;
     int address = -1;
     HardwareSerial* serialPort;
-
+    
     int available();
     /**
      * @brief Construct a new UARTBus object
@@ -22,6 +22,8 @@ class UARTBus {
      */
     UARTBus(UARTBusDataDelegate* delegateIn, Stream* in, Stream* out);
     UARTBus();
+
+    void startComms();
 
     /**
      * @brief Sends a command on the bus
@@ -32,6 +34,7 @@ class UARTBus {
 
 
     template <typename T> void sendData(T data) {
+      DEBUG_PRINT("tx: " + (String) sizeof(data));
       serialPort->write((uint8_t*)&data, sizeof(data));
     }
 
@@ -51,18 +54,33 @@ class UARTBus {
      * @return TOUT 
      */
     byte leftShiftBus(int nJoints, int16_t* dataIn, byte nDataIn, int16_t* dataOut, byte nDataOut) {
+      DEBUG_PRINT(nDataIn);
       for (int i = 0; i < nDataIn; i++) {
         dataIn[i] = receiveData<int16_t>();
       }
 
       int nForwardWords = nDataOut * (address - 1) + nDataIn * (nJoints - address);
+      DEBUG_PRINT("Forwarding: " + (String)nForwardWords);
+      DEBUG_PRINT(nDataOut);
+      DEBUG_PRINT(address);
+      DEBUG_PRINT(nDataIn);
+      DEBUG_PRINT(nJoints);
       while (nForwardWords--) {
-        sendData(receiveData<int16_t>());
+        DEBUG_PRINT((String)nForwardWords + " left...");
+        int16_t data = receiveData<int16_t>();
+        DEBUG_PRINT("received data.");
+        DEBUG_PRINT(data);
+        sendData<int16_t>(data);
+       
+        DEBUG_PRINT("sent data");
       }
 
       for (int i = 0; i < nDataOut; i++) {
-        sendData(dataOut[i]);
+        DEBUG_PRINT("Sending data i: " + (String)i);
+        sendData<int16_t>(dataOut[i]);
+        DEBUG_PRINT(dataOut[i]);
       }
+      serialPort->flush();
       return nDataIn;
     }
 
@@ -75,9 +93,9 @@ class UARTBus {
     template <typename T> void forwardAndAppend(T data, uint8_t size) {
       size--;
       while(size--) {
-        sendData(receiveData<T>());
+        sendData<T>(receiveData<T>());
       }
-      sendData(data);
+      sendData<T>(data);
     }
 
         /**
@@ -87,7 +105,12 @@ class UARTBus {
      */
     template <typename T> T receiveData() {
       T data;
+      while(serialPort->available() == 0) {
+        vTaskDelay(1);
+      }
+      DEBUG_PRINT("avail " + (String)serialPort->available());
       serialPort->readBytes((uint8_t*)&data, sizeof(data));
+      DEBUG_PRINT("rx " + ": " + sizeof(data));
       return data;
     }
 
@@ -98,6 +121,9 @@ class UARTBus {
      */
     Command receiveCommand();
 
+
+    static void handleCommunicationTask(void* params);
+
     /**
      * @brief Consumes a Configuration object from the bus
      *
@@ -105,12 +131,19 @@ class UARTBus {
      */
     Configuration receiveConfiguration();
 
+    void updateCommand(Command c);
+
+    Command getCurrentCommand();
+
     /**
      * @brief Handles forwarding and data fetching. Returns any new commands to be processed
      *
      * @return Command
      */
     Command handleCommunication();
+
+    private:
+      QueueHandle_t commandQueue = xQueueCreate(100, sizeof(Command));
 };
 
 #endif

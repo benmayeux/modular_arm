@@ -1,6 +1,7 @@
 #ifndef COMMAND_H
 #define COMMAND_H
 
+#include "DebugPrint.h"
 enum CommandType {
     // bits 0-2
     COMMANDTYPE_MASK = 0x07,
@@ -33,18 +34,24 @@ enum CommandType {
     EFFORT_WRITE = EFFORT,
     EFFORT_WRITE_CAROUSEL = EFFORT | CAROUSEL,
 };
-
+const byte MAGIC = 0x15;
 struct Command {
     CommandType command;
     int16_t data[4];
     byte address;
     byte nDataOut;
+    byte magic = MAGIC; 
     CommandType getCommandTarget() {
         return (CommandType) (command & COMMANDTYPE_MASK);
     }
     bool isCarousel() {
         return command & CAROUSEL;
     }
+    bool isValid() {
+        DEBUG_PRINT("checking magic" + (String)magic + ", " + (String)MAGIC);
+        return this->magic == MAGIC;
+    }
+
     int getNReturn() {
         byte c = ((byte)command & (byte)RETURN_MASK);
         int count = 0;
