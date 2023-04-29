@@ -12,4 +12,5 @@
 TODO
 
 ## Running
+1. requires `platform = espressif32@5.1.1` in platformio.ini
 TODO
