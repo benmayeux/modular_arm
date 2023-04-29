@@ -58,7 +58,7 @@ namespace base {
     command.command = (CommandType)(commandType | CommandType::CAROUSEL);
 
     command.data[0] = nJoints;
-    bus.sendCommand(command);
+    bus.sendCommand(command, true);
 
     bus.sendData<int16_t>(dataIn, nJoints * nDataIn);
     

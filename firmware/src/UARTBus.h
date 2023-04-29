@@ -25,25 +25,20 @@ class UARTBus {
 
     void startComms();
 
-    /**
-     * @brief Sends a command on the bus
-     *
-     * @param c
-     */
-    void sendCommand(Command c);
+    void sendCommand(Command c, bool clearBuffer = false);
 
 
     template <typename T> void sendData(T data) {
       DEBUG_PRINT("tx: " + (String) sizeof(data));
       DEBUG_PRINT("sent: " + (String)serialPort->write((uint8_t*)&data, sizeof(data)));
-      serialPort->flush();
+     // serialPort->flush();
     }
 
 
     template <typename T> void sendData(T* data, int n) {
       DEBUG_PRINT("tx: " + (String) (sizeof(data[0]) * n));
       DEBUG_PRINT("sent: " + (String)serialPort->write((uint8_t*)data, sizeof(data[0]) * n));
-      serialPort->flush();
+     // serialPort->flush();
     }
 
     /**
@@ -63,8 +58,8 @@ class UARTBus {
      */
     byte leftShiftBus(int nJoints, int16_t* dataIn, byte nDataIn, int16_t* dataOut, byte nDataOut) {
       DEBUG_PRINT(nDataIn);
-      for (int i = 0; i < nDataIn; i++) {
-        dataIn[i] = receiveData<int16_t>();
+      if (nDataIn > 0) {
+        receiveData<int16_t>(dataIn, nDataIn);
       }
 
       int nForwardWords = nDataOut * (address - 1) + nDataIn * (nJoints - address);
@@ -83,7 +78,7 @@ class UARTBus {
       }
       DEBUG_PRINT("Sending data");
       sendData<int16_t>(dataOut, nDataOut);
-      serialPort->flush();
+     // serialPort->flush();
       DEBUG_PRINT("done");
       return nDataIn;
     }
@@ -123,12 +118,14 @@ class UARTBus {
       DEBUG_PRINT("avail " + (String)serialPort->available());
       serialPort->readBytes((uint8_t*)&data, sizeof(data));
       DEBUG_PRINT("rx :" + (String)sizeof(data));
+      DEBUG_PRINT("avail " + (String)serialPort->available());
       return data;
     }
 
     template <typename T> int receiveData(T* buffer, int n) {
       T data;
       int timeout = 30;
+      DEBUG_PRINT("avail " + (String)serialPort->available());
       while(serialPort->available() == 0 && timeout--) {
         DEBUG_PRINT("waiting on serial for " + (String)sizeof(data));
         vTaskDelay(20);

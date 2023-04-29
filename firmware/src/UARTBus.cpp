@@ -35,9 +35,11 @@
      *
      * @param c
      */
-    void UARTBus::sendCommand(Command c) {
-      while(this->serialPort->available()) {
-        this->serialPort->read();
+    void UARTBus::sendCommand(Command c, bool clearBuffer) {
+      if(clearBuffer) {
+        while(this->serialPort->available()) {
+          this->serialPort->read();
+        }
       }
       DEBUG_PRINT("send command");
       sendData<Command>(c);
@@ -88,6 +90,7 @@
             currentCommand = This->receiveCommand();
 
             if(!currentCommand.isValid()) {
+              DEBUG_PRINT("NOT VALID");
               while(This->serialPort->available()) {
                 This->serialPort->read();
               }
@@ -132,6 +135,7 @@
                 DEBUG_PRINT("polling");
                 This->leftShiftBus(nJoints, nullptr, 0, dataBuffer, nDataOut);
               } else {
+                DEBUG_PRINT("avail: " + (String) This->serialPort->available());
                 This->leftShiftBus(nJoints, currentCommand.data, 1, dataBuffer, nDataOut);
                 This->updateCommand(currentCommand);
               }

@@ -8,7 +8,7 @@
   #ifdef DEBUG_PRINT_H
     #include <Arduino.h>
     const SemaphoreHandle_t debugPrintMutex = xSemaphoreCreateMutex();
-    #define DEBUG_PRINT(x) xSemaphoreTake(debugPrintMutex,1000); Serial.println("DEBUG: " + (String)x); xSemaphoreGive(debugPrintMutex)
+    #define DEBUG_PRINT(x) xSemaphoreTake(debugPrintMutex,1000); DEBUG_FUNC.println("DEBUG: " + (String)x); xSemaphoreGive(debugPrintMutex)
   #else
     #define DEBUG_PRINT(x) DEBUG_FUNC.println("DEBUG: " + (String)x)
   #endif
