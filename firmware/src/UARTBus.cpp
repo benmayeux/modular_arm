@@ -39,6 +39,7 @@
       while(this->serialPort->available()) {
         this->serialPort->read();
       }
+      DEBUG_PRINT("send command");
       sendData(c);
     }
 
@@ -116,14 +117,16 @@
               int16_t* dataBuffer = new int16_t[currentCommand.getNReturn()];
               byte nDataOut = This->delegate->fetchData(currentCommand.command, dataBuffer);
               if ((CommandType)(currentCommand.command & COMMANDTYPE_MASK) == NOOP) {
+                DEBUG_PRINT("polling");
                 This->leftShiftBus(nJoints, nullptr, 0, dataBuffer, nDataOut);
               } else {
                 This->leftShiftBus(nJoints, currentCommand.data, 1, dataBuffer, nDataOut);
+                This->updateCommand(currentCommand);
               }
               delete[] dataBuffer;
 
               // Forward data
-              This->updateCommand(currentCommand);
+          
               continue;
             }
 

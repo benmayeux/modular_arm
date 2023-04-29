@@ -53,6 +53,7 @@ class UARTBus {
      * @return TOUT 
      */
     byte leftShiftBus(int nJoints, int16_t* dataIn, byte nDataIn, int16_t* dataOut, byte nDataOut) {
+      DEBUG_PRINT(nDataIn);
       for (int i = 0; i < nDataIn; i++) {
         dataIn[i] = receiveData<int16_t>();
       }
@@ -68,15 +69,17 @@ class UARTBus {
         int16_t data = receiveData<int16_t>();
         DEBUG_PRINT("received data.");
         DEBUG_PRINT(data);
-        sendData(data);
+        sendData<int16_t>(data);
+       
         DEBUG_PRINT("sent data");
       }
 
       for (int i = 0; i < nDataOut; i++) {
         DEBUG_PRINT("Sending data i: " + (String)i);
-        sendData(dataOut[i]);
+        sendData<int16_t>(dataOut[i]);
         DEBUG_PRINT(dataOut[i]);
       }
+      serialPort->flush();
       return nDataIn;
     }
 
@@ -101,7 +104,9 @@ class UARTBus {
      */
     template <typename T> T receiveData() {
       T data;
+      int avail = serialPort->available();
       serialPort->readBytes((uint8_t*)&data, sizeof(data));
+      
       return data;
     }
 
