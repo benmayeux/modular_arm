@@ -48,8 +48,8 @@ void setup() {
     } else {
       modules[i]->setup(streams[i-1], streams[i]);
     }
-    
   }
+  delay(3000);
   // Run the module setup (reads calibration data from EEPROM, determines mounting orientation, waits for communication from base module)
 }
 

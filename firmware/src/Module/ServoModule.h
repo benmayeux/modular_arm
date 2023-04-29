@@ -47,10 +47,10 @@ class ServoModule: public UARTBusDataDelegate {
         void calibrate(); 
         void disable(); 
         int16_t getMaxPotation(){
-            return this->maxPotentiometerRange;
+            return this->maxServoRange;
         }
         int16_t getMinPotation(){
-            return this->minPotentiometerRange;
+            return this->minServoRange;
         }
         // void enable(); // Will enable the module to move (Probably dont need)
         // String getStatus(); // (Probably not needed, getMode can be used instead)   
@@ -78,9 +78,6 @@ class ServoModule: public UARTBusDataDelegate {
         // GPIO Pin of the motor controller
         uint8_t PWMPin;
 
-        // GPIO Pin of the position potentiometer
-        uint8_t potentiometerPin;
-
         // GPIO Pin of the orientation switch
         uint8_t mountingOrientationSwitchPin;
 
@@ -90,10 +87,10 @@ class ServoModule: public UARTBusDataDelegate {
         
         // Setup/Calibration Data:---------------------------------------------------------------
         // Maximum value of the potentiometer to stay within physical range of movement, Pulled from Flash during setup()
-        int16_t maxPotentiometerRange = -45; // Pull this from flash on startup (Defaults to 3072 if hasnt had a value yet)
+        int16_t maxServoRange = -45; // Pull this from flash on startup (Defaults to 3072 if hasnt had a value yet)
 
         // Minimum value of the potentiometer to stay within physical range of movement, Pulled from Flash on setup()
-        int16_t minPotentiometerRange = 45; // Pull this from flash on startup (Defaults to 1024 if hasnt had a value yet)
+        int16_t minServoRange = 45; // Pull this from flash on startup (Defaults to 1024 if hasnt had a value yet)
 
         // The orientation of the robot, determined during setup()
         bool orientation;
