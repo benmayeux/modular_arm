@@ -14,7 +14,7 @@ BasicModule thisModule = BasicModule(14,4,23);
 void setup() {
   Serial.begin(115200);
   Serial2.begin(115200);
-  thisModule.setup(&Serial2,&Serial2);
+  thisModule.setup();
 
   delay(3000);
   while(Serial2.available()) {

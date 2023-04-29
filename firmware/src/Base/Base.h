@@ -1,35 +1,50 @@
 #ifndef BASE_H
 #define BASE_H
 
-#include "SerialInterface.h"
+#include "roundRobinComms.h"
 #include "Configuration.h"
 #include "Command.h"
-#include "UARTBus.h"
+#include "commandReader.h"
 
-namespace base {
-  class Base {
-    private:
-      SerialInterface serialInterface;
-    public:
-      static const int COM_PORT = 2;
-      uint8_t nJoints;
-      Configuration* config;
-      UARTBus bus;
+class Base {
+  private:
+    roundRobinComms rrc2;
+    commandReader cr;
 
-      void setup();
-      bool fetchConfiguration(int timeout = 10000);
+    void monitorComms();
+    void handleReceivedCommunication(Communication C);
+    void startCommunication(Communication C);
+    void monitorCommandInputs();
+    BasicModuleData modules[10];
+    CommRequests convertStringCommandToCommRequest(String str);
 
-      Command sendCarouselCommand(CommandType commandType, int16_t* dataIn, int nDataIn, int16_t* dataOut, int nDataOut);
+    // Initialize the command value for the Command Reader
+    String command[20] = {"N/A"};
 
-      Command sendToJoint(CommandType commandType, int address, int16_t data);
-      Command sendEffort(int address, int16_t data);
-      Command sendPosition(int address, int16_t data);
-
-      Command sendCarouselPosition(int16_t *data, int length, int16_t *dataOut);
-
-      int calculateIK(int16_t* output, int16_t x, int16_t y, int16_t z);
-      void executeCommand(SerialInputCommand command);
-      void loop();
+  public:
+    Base();
+    uint8_t nJoints;
+    Configuration config;
+    void setup();
+    void loop();
   };
+
+
+
+struct BasicModuleData{
+  uint8_t moduleNum = -1;
+  float length;
+  bool orientation;
+  int16_t desiredPositionCentidegrees;
+  int16_t currentPositionCentidegrees;
+  int8_t currentEffort;
+  float posKp;
+  float posKi;
+  float posKd;
+  int16_t currentVeloityCentidegrees;
+  int16_t currentAccelerationCentidegrees;
 };
+
+
+
 #endif

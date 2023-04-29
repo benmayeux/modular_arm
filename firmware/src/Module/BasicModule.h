@@ -6,21 +6,16 @@
 #include <TalonSR.h>
 
 #include <EEPROM.h>
+#include "Configuration.h"
+#include "roundRobinComms.h"
 
-#include "UARTBusDataDelegate.h"
-#include "UARTBus.h"
 
-
-class BasicModule: public UARTBusDataDelegate {
+class BasicModule{
     public:
         BasicModule(uint8_t PWMPin, uint8_t potentiometerPin, uint8_t mountingOrientationSwitchPin);
-        void setConfiguration(Configuration c);
-        byte fetchData(CommandType command, int16_t *data);
-        void setup(Stream *in, Stream *out);
+        void setup();
         void loop();
-        int16_t fetchData(CommandType command);
         Configuration getConfiguration();
-        void processCommand(Command c);
         void stateMachine();
         void setPosition(int16_t positionCentidegrees);
         int16_t getPosition();
@@ -58,6 +53,9 @@ class BasicModule: public UARTBusDataDelegate {
         // The motor controller
         TalonSR motor;
 
+        // Communication Class
+        roundRobinComms rrc2;
+
     private:
         // Private Methods:--------------------------------------------------------------------
         void setEffortPrivate(int16_t effort);
@@ -68,12 +66,12 @@ class BasicModule: public UARTBusDataDelegate {
         void controlLoopCalibration();
         static bool save16BitToEEPROM(uint16_t numToSave, uint8_t mem1, uint8_t mem2);
         static uint16_t read16BitFromEEPROM(uint8_t mem1, uint8_t mem2);
+        void monitorComms();
+        Communication handleReceivedCommunication(Communication C);
 
-
-
+        
 
         // General data:------------------------------------------------------------------------
-        UARTBus dataBus;
 
         // GPIO Pin of the motor controller
         uint8_t PWMPin;

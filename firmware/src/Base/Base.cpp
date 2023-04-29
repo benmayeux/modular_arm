@@ -1,180 +1,140 @@
 #include <Arduino.h>
 #include "Command.h"
-#include "UARTBus.h"
-#include "DebugPrint.h"
-#include "SerialInterface.h"
 #include "Base.h"
+#include "Communication.h"
+#include "roundRobinComms.h"
+#include "DebugPrint.h"
 
-namespace base {
-  void Base::setup() {
-      serialInterface = SerialInterface();
-      serialInterface.begin(115200);
-      delay(300);
-      DEBUG_PRINT("SETUP");
-      bus = UARTBus(0, &Serial2, &Serial2);
-      fetchConfiguration();
+
+Base::Base(): rrc2(2,115200,BYTES_REQUIRED), cr(0,115200){
+}
+
+
+void Base::setup() {
+    //Initialize the Serial 2 Comms
+    this->rrc2.begin();
+    cr.begin();
+}
+
+void Base::loop(){
+  this->monitorComms();
+
+
+}
+
+
+void Base::monitorCommandInputs(){
+  if(this->cr.monitorForCommands()){
+    this->cr.getCommand(this->command);
   }
 
-  bool Base::fetchConfiguration(int timeout) {
-    Command c = Command();
-    c.command = CommandType::CONFIGURE;
-    // starting address
-    c.address = 1;
-    DEBUG_PRINT("sending config...");
-    DEBUG_PRINT(c.command);
-    bus.sendCommand(c);
-    int elapsed = 0;
-    while(!bus.available()) {
-      DEBUG_PRINT("waiting");
-      elapsed += 100;
-      delay(100);
-      if(elapsed >= timeout) {
-        return false;
+  Communication C;
+
+  switch(convertStringCommandToCommRequest(this->command[0])){
+    case SET_CONFIGURATON_REQUEST:
+      C.commType = SET_CONFIGURATON_REQUEST;
+      C.moduleNum = -1; // ALL MODULES
+      for(uint8_t i=0;i<sizeof(C.data) / sizeof(C.data[0]); i++){
+          C.data[i] = -1;
       }
+    break;
+  }
+}
+
+CommRequests Base::convertStringCommandToCommRequest(String str){
+  if(this->command[0] == "SETCONFIG"){
+    return SET_CONFIGURATON_REQUEST;
+  }
+}
+
+void Base::monitorComms(){
+  this->rrc2.loop();
+
+  if(rrc2.newCommandReceived()){
+    Communication C = rrc2.decipherCommand();
+    DEBUG_PRINT("Communication Received over Serial 2: ");
+    DEBUG_PRINT(C.commType);
+    DEBUG_PRINT(C.moduleNum);
+    for(int i=0;i<10;i++){
+        DEBUG_PRINT(C.data[i]);
     }
-    c = bus.receiveCommand();
-    DEBUG_PRINT("got "+ (String)c.command);
-    nJoints = c.address - 1;
-    DEBUG_PRINT("joints: " + (String)nJoints);
-    if(config) {
-      delete[] config;
-      config = NULL;
-    }
-    config = new Configuration[nJoints];
 
-    for(int n = 0; n < nJoints; n++) {
-      config[n] = bus.receiveConfiguration();
-      DEBUG_PRINT("joint " + (String)n + ":");
-      DEBUG_PRINT("    length: " + (String)config[n].length);
-      DEBUG_PRINT("    orientation: " + (String)config[n].orientation);
-    }
-    return true;
+    // Handle the communication when it is received, and save the response
+    this->handleReceivedCommunication(C);
   }
+}
+
+void Base::startCommunication(Communication C){
+  rrc2.sendCommunication(C);
+}
 
 
-  Command Base::sendCarouselCommand(CommandType commandType, int16_t* dataIn, int nDataIn, int16_t* dataOut, int nDataOut) {
-    DEBUG_PRINT("sending carousel: " + (String)commandType + ": " + (String)nJoints);
-    Command command = Command();
-    command.command = (CommandType)(commandType | CommandType::CAROUSEL);
 
-    command.data[0] = nJoints;
-    bus.sendCommand(command);
-    for (int i = 0; i < nJoints * nDataIn; i++) {
-      bus.sendData(dataIn[i]);
-    }
-    command = bus.receiveCommand();
-    DEBUG_PRINT(command.command);
-    for (int i = 0; i < nJoints*nDataOut; i++) {
-      dataOut[i] = bus.receiveData<int16_t>();
-    }
-    return command;
-  }
 
-  // TODO: async receive
-  Command Base::sendToJoint(CommandType commandType, int address, int16_t data) {
-    DEBUG_PRINT("Sending: " + (String)commandType + ":" + (String)data + " to joint: " + (String)address);
-    Command command = Command();
-    command.command = commandType;
-    command.data[0] = data;
-    command.address = address;
-    bus.sendCommand(command);
-    command = bus.receiveCommand();
-    DEBUG_PRINT(command.command);
-    DEBUG_PRINT("received back: " + (String) command.data[0] + ": " + (String) command.getNReturn());
-    return command;
-  }
-
-  Command Base::sendEffort(int address, int16_t data) {
-    return sendToJoint(CommandType::EFFORT_WRITE, address, data);
-  }
-
-  Command Base::sendPosition(int address, int16_t data) {
-    return sendToJoint((CommandType)(CommandType::POSITION_WRITE | CommandType::RETURN_POSITION | CommandType::RETURN_VELOCITY | CommandType::RETURN_EFFORT), address, data);
-  }
-
-  Command Base::sendCarouselPosition(int16_t* data, int length, int16_t* dataOut) {
-    return sendCarouselCommand((CommandType)(CommandType::POSITION_WRITE_CAROUSEL | 
-                                             CommandType::RETURN_POSITION | 
-                                             CommandType::RETURN_EFFORT | 
-                                             CommandType::RETURN_VELOCITY), 
-                                             data, 1, dataOut, 3);
-  }
-
-  // TODO: actual IK
-  int Base::calculateIK(int16_t* output, int16_t x, int16_t y, int16_t z) {
-    DEBUG_PRINT("Setting EE pos to: (" + (String)x + ", " + (String)y + ", " + (String)z + ")");
-    for (int i = 0; i < nJoints; i++) {
-      output[i] = i + x + y + z;
-    }
-    return nJoints;
-  }
-
-  void Base::executeCommand(SerialInputCommand command) {
-    int n = 0;
-    int16_t dataBuffer[40];
-    Command c;
-    switch (command.commandType) {
-      case SerialInputCommandType::RECONFIGURE:
-        fetchConfiguration();
-        break;
-      case SerialInputCommandType::SET_JOINT_POSITION:
-        c = sendPosition(command.data[0], command.data[1]);
-        n = c.getNReturn();
-        Serial.println("1,JOINT,POS,EFF,VEL");
-        Serial.print((String)c.address + ",");
-        for (int i = 0; i < n; i++) {
-          Serial.print(c.data[i]);
-          Serial.print(",");
-        }
-        Serial.println();
-        break;
-      case SerialInputCommandType::SET_TASK_POSITION:
-        n = calculateIK(dataBuffer, command.data[0],command.data[1],command.data[2]);
-        c = sendCarouselPosition(dataBuffer, n, dataBuffer);
-        Serial.println((String)n + ",JOINT,POS,EFF,VEL");
-        for (int i = 0; i < n; i++) {
-          Serial.print((String)i + ",");
-          for (int j = 0; j < c.getNReturn(); j++) {
-            Serial.print((String)dataBuffer[c.getNReturn()*i + j] + ",");
+void Base::handleReceivedCommunication(Communication C){
+  switch(C.commType){
+    case SET_CONFIGURATON_REQUEST:
+        for(uint8_t i=0;i<sizeof(C.data) / sizeof(C.data[0]); i++){
+          if(C.data[i] == -1){
+            this->nJoints == i;
+            break;
           }
-          Serial.println();
+          this->modules[i].orientation = C.data[i];
         }
-        break;
-      case SerialInputCommandType::POLL:
-        n = nJoints;
-        c = sendCarouselCommand((CommandType)(CommandType::NOOP | 
-                                          CommandType::CAROUSEL | 
-                                          CommandType::RETURN_POSITION | 
-                                          CommandType::RETURN_EFFORT | 
-                                          CommandType::RETURN_VELOCITY), 
-                                        nullptr, 0, dataBuffer, 3);
-        Serial.println((String)n + ",JOINT,POS,EFF,VEL");
-        for (int i = 0; i < n; i++) {
-          Serial.print((String)i + ",");
-          for (int j = 0; j < c.getNReturn(); j++) {
-            Serial.print((String)dataBuffer[c.getNReturn()*i + j] + ",");
+    break;
+    case GET_CONFIGURATON_REQUEST:
+        // For each module
+        for(uint8_t i = 0; i < this->nJoints; i++){
+          this->modules[i].orientation = C.data[i];
+        }
+    break;
+    case SET_DESIRED_POSITION_REQUEST:
+    case GET_DESIRED_POSITION_REQUEST:
+        // For each module
+        for(uint8_t i = 0; i < this->nJoints; i++){
+          this->modules[i].desiredPositionCentidegrees = C.data[i];
+        }
+    break;
+    case GET_CURRENT_POSITION_REQUEST:
+        // For each module
+        for(uint8_t i = 0; i < this->nJoints; i++){
+          this->modules[i].currentPositionCentidegrees = C.data[i];
+        }
+    break;
+    case SET_EFFORT_REQUEST:
+    case GET_EFFORT_REQUEST:
+        // For each module
+        for(uint8_t i = 0; i < this->nJoints; i++){
+          this->modules[i].currentEffort = C.data[i];
+        }
+    break;
+    case SET_POS_KP_KI_KD_REQUEST:
+    case GET_POS_KP_KI_KD_REQUEST:
+        // Only for one module unless moduleNum == -1
+        if(C.moduleNum != -1){
+          this->modules[C.moduleNum - 1].posKp = C.data[0];
+          this->modules[C.moduleNum - 1].posKi = C.data[1];
+          this->modules[C.moduleNum - 1].posKd = C.data[2];
+        }else{ // update for all if it was set for all
+          for(uint8_t i = 0; i < this->nJoints; i++){
+            this->modules[i].posKp = C.data[0];
+            this->modules[i].posKi = C.data[1];
+            this->modules[i].posKd = C.data[2];
           }
-          Serial.println();
         }
-        break;
-      case SerialInputCommandType::INVALID:
-        DEBUG_PRINT("Invalid command!");
-        break;
-      case SerialInputCommandType::NONE:
-        break;
-      default:
-        DEBUG_PRINT("Unexpected commandType: " + (String)command.commandType);
-        break;
-    }
-  }
-
-  void Base::loop()
-  {
-    SerialInputCommand command = serialInterface.parseCommand();
-    if (command.commandType != SerialInputCommandType::NONE) {
-      executeCommand(command);
-    }
-    delay(1);
-  }
-};
+    break;
+    case GET_CURRENT_VELOCITY_REQUEST:
+        // For each module
+        for(uint8_t i = 0; i < this->nJoints; i++){
+          this->modules[i].currentVeloityCentidegrees = C.data[i];
+        }
+    break;
+    case GET_CURRENT_ACCELERATION_REQUEST:
+        // For each module
+        for(uint8_t i = 0; i < this->nJoints; i++){
+          this->modules[i].currentAccelerationCentidegrees = C.data[i];
+        }
+    break;
+}
+}
 

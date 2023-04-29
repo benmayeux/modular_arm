@@ -1,0 +1,31 @@
+#ifndef COMMUNICATION_H
+#define COMMUNICATION_H
+
+#include <Arduino.h>
+
+// NEEDS to be an EVEN number
+#define DATA_16BIT_INTS 10
+#define BYTES_REQUIRED ((DATA_16BIT_INTS * 2) + 2)
+
+enum CommRequests{
+    SET_CONFIGURATON_REQUEST,
+    GET_CONFIGURATON_REQUEST,
+    SET_DESIRED_POSITION_REQUEST,
+    GET_DESIRED_POSITION_REQUEST,
+    GET_CURRENT_POSITION_REQUEST,
+    SET_EFFORT_REQUEST,
+    GET_EFFORT_REQUEST,
+    SET_POS_KP_KI_KD_REQUEST,
+    GET_POS_KP_KI_KD_REQUEST,
+    GET_CURRENT_VELOCITY_REQUEST,
+    GET_CURRENT_ACCELERATION_REQUEST
+};
+
+
+struct Communication{
+    CommRequests commType;
+    int8_t moduleNum;
+    int16_t data[DATA_16BIT_INTS];
+};
+
+#endif

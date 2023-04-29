@@ -13,6 +13,8 @@
 #include "BasicModule.h"
 #include <TalonSR.h>
 #include "DebugPrint.h"
+#include "roundRobinComms.h"
+#include "Communication.h"
 
 /*
  * Turn A into a string literal without expanding macro definitions
@@ -29,57 +31,111 @@
     @param uint8_t potentiometerPin : The GPIO Pin to use for the potentiometer position reading
     @param uint8_t mountingOrientationSwitchPin : The GPIO Pin to use to determine the module orientation 
 */
-BasicModule::BasicModule(uint8_t PWMPin, uint8_t potentiometerPin, uint8_t mountingOrientationSwitchPin): motor(TalonSR(PWMPin)){
+BasicModule::BasicModule(uint8_t PWMPin, uint8_t potentiometerPin, uint8_t mountingOrientationSwitchPin): rrc2(2,115200,BYTES_REQUIRED), motor(TalonSR(PWMPin)){
     this->PWMPin = PWMPin;
     this->potentiometerPin = potentiometerPin;
     this->mountingOrientationSwitchPin = mountingOrientationSwitchPin;
 }
 
-void BasicModule::setConfiguration(Configuration c) {
-    configuration = c;
-}
 
-byte BasicModule::fetchData(CommandType command, int16_t* data) {
-    byte nData = 0;
-    CommandType returnType = (CommandType)(command & CommandType::RETURN_MASK);
-    if (returnType & CommandType::RETURN_POSITION) {
-        data[nData] = this->getPosition();
-        nData++;
-    }
-    if (returnType & CommandType::RETURN_EFFORT) {
-        data[nData] = this->getEffort();
-        nData++;
-    }
-    if (returnType & CommandType::RETURN_VELOCITY) {
-        data[nData] = this->getVelocity();
-        nData++;
-    }
-    DEBUG_PRINT("Ndata");
-    DEBUG_PRINT(nData);
-    return nData;
-}
 
 // TODO: get actual values from EEPROM?
 Configuration BasicModule::getConfiguration() {
     return configuration;
 }
 
-void BasicModule::processCommand(Command c) {
-    switch(c.getCommandTarget()) {
-        case CommandType::EFFORT:
-            DEBUG_PRINT((String) dataBus.address + ": setting effort to " + (String)c.data[0]);
-            this->mode = MODE_EFFORT;
-            this->setEffort(c.data[0]);
-            break;
-        case CommandType::POSITION:
-            DEBUG_PRINT((String) dataBus.address + ": setting pos to " + (String)c.data[0]);
-            this->mode = MODE_POSITION;
-            this->setPosition(c.data[0]);
-            break;
-        default:
-            break;
+
+/*
+Monitors for any received Serial 2 communications, and runs the function to handle them
+*/
+void BasicModule::monitorComms(){
+    rrc2.loop(); // Runs polling of if there is new data
+
+    if(rrc2.newCommandReceived()){
+        Communication C = rrc2.decipherCommand();
+        DEBUG_PRINT("Communication Received over Serial 2: ");
+        DEBUG_PRINT(C.commType);
+        DEBUG_PRINT(C.moduleNum);
+        for(int i=0;i<10;i++){
+            DEBUG_PRINT(C.data[i]);
+        }
+
+        // Handle the communication when it is received, and save the response
+        Communication commToForward = this->handleReceivedCommunication(C);
+
+        // Send the updated communication
+        this->rrc2.sendCommunication(commToForward);
     }
 }
+
+/*
+Handles the new Communications as they come
+// TODO: Make Communication Data have at least three floats (if not a float array) for the PID values
+@param Communication C : The received communication with the task to carry out
+*/
+Communication BasicModule::handleReceivedCommunication(Communication C){
+    // If this module is the one chosen by the Communication, act upon the command. Otherwise, forward the command
+    if(C.moduleNum == this->configuration.moduleNum or C.moduleNum == -1){
+    
+        // Data field corresponding to this module
+        uint8_t D = this->configuration.moduleNum - 1; 
+
+        switch(C.commType){
+            case SET_CONFIGURATON_REQUEST:
+                // Will have data == [-1,-1...] when initially sent. Each module sets the next empty element in array to 0 or 1 depending on its orientation.
+                // The location set in the array is ONE SMALLER than is its module number. (ex. Data = [1,0,-1,-1...] means that the module that just set Data[1] = 0 is the second module
+
+                // For every item in the C.data array, find the first index with a "-1"
+                for(uint8_t i=0;i<sizeof(C.data) / sizeof(C.data[0]); i++){
+                    if(C.data[i] == -1){
+                        this->configuration.moduleNum = i+1;
+                        break;
+                    } 
+                }
+                C.data[this->configuration.moduleNum - 1] = this->getArmOrientation();
+            break;
+            case GET_CONFIGURATON_REQUEST:
+                C.data[D] = this->getArmOrientation();
+            break;
+            case SET_DESIRED_POSITION_REQUEST:
+                // Data: [module1PosCentidegrees, module2PosCentidegrees, ..., moduleNPosCentidegrees]
+                this->setPosition(C.data[D]);
+            break;
+            case GET_DESIRED_POSITION_REQUEST:
+                C.data[D] = this->getDesiredPosition();
+            break;
+            case GET_CURRENT_POSITION_REQUEST:
+                C.data[D] = this->getPosition();
+            break;
+            case SET_EFFORT_REQUEST:
+                this->setEffort(C.data[D]);
+            break;
+            case GET_EFFORT_REQUEST:
+                C.data[D] = this->getEffort();
+            break;
+            case SET_POS_KP_KI_KD_REQUEST:
+                this->setPosKpKiKd(C.data[0], C.data[1], C.data[2]);
+            break;
+            case GET_POS_KP_KI_KD_REQUEST:
+                float PID[3];
+                this->getPosKpKiKd(PID);
+                C.data[0] = PID[0];
+                C.data[1] = PID[1];
+                C.data[2] = PID[2];
+            break;
+            case GET_CURRENT_VELOCITY_REQUEST:
+                C.data[D] = this->getVelocity();
+            break;
+            case GET_CURRENT_ACCELERATION_REQUEST:
+                C.data[D] = this->currentAccelCentidegrees;
+            break;
+        }
+    }
+
+    // Return the Communication once the necessary changes have been made
+    return C;
+}
+
 
 /*
     The general state machine to be run in a loop to allow for functionality of the Module.
@@ -135,7 +191,7 @@ void BasicModule::controlLoopEffort(){
 */
 void BasicModule::controlLoopPosition(bool Reset){  
     float Err = (this->desiredPositionCentidegrees - this->currentPositionCentidegrees)/100; // Error in Degrees to keep P, I, D values in reasonable range
-    // DEBUG_PRINT("Err: ");
+    DEBUG_PRINT("Err: ");
     // DEBUG_PRINT(Err);
     // DEBUG_PRINT("Kp");
     // DEBUG_PRINT(this->posKp);
@@ -212,13 +268,11 @@ void BasicModule::controlLoopCalibration(){
 /*
     Boots up the module, determines necessary constants, and initiates communications
 */
-void BasicModule::setup(Stream* in, Stream* out){
+void BasicModule::setup(){
     // Set initial mode (disabled)
         this->mode = MODE_DISABLE;
-        this->dataBus = UARTBus(this, in, out);
-        DEBUG_PRINT(xPortGetCoreID());
-        DEBUG_PRINT("SETUP...");
-        this->dataBus.startComms();
+
+        rrc2.begin(); // Begin Serial 2 Comms
 
     // No longer pulling from flash
     // Pull calibration data from flash
@@ -280,9 +334,10 @@ void BasicModule::setup(Stream* in, Stream* out){
 void BasicModule::loop() {
     // sense
     this->updatePosVelAcc();
+
     // process
-    Command command = this->dataBus.getCurrentCommand();
-    this->processCommand(command);
+    this->monitorComms();
+    
     // act
     this->stateMachine();
 }
