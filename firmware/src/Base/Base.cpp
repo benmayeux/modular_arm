@@ -64,9 +64,11 @@ namespace base {
     }
     command = bus.receiveCommand();
     DEBUG_PRINT(command.command);
+    DEBUG_PRINT("Reading " + (String)(nJoints*nDataOut) +" words");
     for (int i = 0; i < nJoints*nDataOut; i++) {
       dataOut[i] = bus.receiveData<int16_t>();
     }
+    DEBUG_PRINT("Done");
     return command;
   }
 
@@ -142,12 +144,14 @@ namespace base {
         break;
       case SerialInputCommandType::POLL:
         n = nJoints;
+        DEBUG_PRINT("Sending poll");
         c = sendCarouselCommand((CommandType)(CommandType::NOOP | 
                                           CommandType::CAROUSEL | 
                                           CommandType::RETURN_POSITION | 
                                           CommandType::RETURN_EFFORT | 
                                           CommandType::RETURN_VELOCITY), 
                                         nullptr, 0, dataBuffer, 3);
+        DEBUG_PRINT("Sent...");
         Serial.println((String)n + ",JOINT,POS,EFF,VEL");
         for (int i = 0; i < n; i++) {
           Serial.print((String)i + ",");

@@ -36,6 +36,9 @@
      * @param c
      */
     void UARTBus::sendCommand(Command c) {
+      while(this->serialPort->available()) {
+        this->serialPort->read();
+      }
       sendData(c);
     }
 

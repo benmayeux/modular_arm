@@ -64,11 +64,18 @@ class UARTBus {
       DEBUG_PRINT(nDataIn);
       DEBUG_PRINT(nJoints);
       while (nForwardWords--) {
-        sendData(receiveData<int16_t>());
+        DEBUG_PRINT((String)nForwardWords + " left...");
+        int16_t data = receiveData<int16_t>();
+        DEBUG_PRINT("received data.");
+        DEBUG_PRINT(data);
+        sendData(data);
+        DEBUG_PRINT("sent data");
       }
 
       for (int i = 0; i < nDataOut; i++) {
+        DEBUG_PRINT("Sending data i: " + (String)i);
         sendData(dataOut[i]);
+        DEBUG_PRINT(dataOut[i]);
       }
       return nDataIn;
     }
