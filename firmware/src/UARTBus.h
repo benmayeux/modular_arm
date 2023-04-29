@@ -35,7 +35,15 @@ class UARTBus {
 
     template <typename T> void sendData(T data) {
       DEBUG_PRINT("tx: " + (String) sizeof(data));
-      serialPort->write((uint8_t*)&data, sizeof(data));
+      DEBUG_PRINT("sent: " + (String)serialPort->write((uint8_t*)&data, sizeof(data)));
+      serialPort->flush();
+    }
+
+
+    template <typename T> void sendData(T* data, int n) {
+      DEBUG_PRINT("tx: " + (String) (sizeof(data[0]) * n));
+      DEBUG_PRINT("sent: " + (String)serialPort->write((uint8_t*)data, sizeof(data[0]) * n));
+      serialPort->flush();
     }
 
     /**
@@ -65,22 +73,18 @@ class UARTBus {
       DEBUG_PRINT(address);
       DEBUG_PRINT(nDataIn);
       DEBUG_PRINT(nJoints);
-      while (nForwardWords--) {
-        DEBUG_PRINT((String)nForwardWords + " left...");
-        int16_t data = receiveData<int16_t>();
+      if (nForwardWords > 0) {
+        int16_t* data = new int16_t[nForwardWords];
+        receiveData<int16_t>(data, nForwardWords);
         DEBUG_PRINT("received data.");
-        DEBUG_PRINT(data);
-        sendData<int16_t>(data);
-       
-        DEBUG_PRINT("sent data");
+        sendData<int16_t>(data, nForwardWords);
+      
+        delete[] data;
       }
-
-      for (int i = 0; i < nDataOut; i++) {
-        DEBUG_PRINT("Sending data i: " + (String)i);
-        sendData<int16_t>(dataOut[i]);
-        DEBUG_PRINT(dataOut[i]);
-      }
+      DEBUG_PRINT("Sending data");
+      sendData<int16_t>(dataOut, nDataOut);
       serialPort->flush();
+      DEBUG_PRINT("done");
       return nDataIn;
     }
 
@@ -91,11 +95,13 @@ class UARTBus {
      * @param size 
      */
     template <typename T> void forwardAndAppend(T data, uint8_t size) {
-      size--;
-      while(size--) {
-        sendData<T>(receiveData<T>());
+      T* d = new T[size];
+      if(size-1) {
+        DEBUG_PRINT((size-1));
+        receiveData<T>(d, size-1);
       }
-      sendData<T>(data);
+      d[size-1] = data;
+      sendData<T>(d, size);
     }
 
         /**
@@ -105,15 +111,38 @@ class UARTBus {
      */
     template <typename T> T receiveData() {
       T data;
-      while(serialPort->available() == 0) {
-        vTaskDelay(1);
+      int timeout = 30;
+      while(serialPort->available() == 0 && timeout--) {
+        DEBUG_PRINT("waiting on serial for " + (String)sizeof(data));
+        vTaskDelay(20);
+      }
+      if(timeout <= 0) {
+        DEBUG_PRINT("Skipping");
+        return data;
       }
       DEBUG_PRINT("avail " + (String)serialPort->available());
       serialPort->readBytes((uint8_t*)&data, sizeof(data));
-      DEBUG_PRINT("rx " + ": " + sizeof(data));
+      DEBUG_PRINT("rx :" + (String)sizeof(data));
       return data;
     }
 
+    template <typename T> int receiveData(T* buffer, int n) {
+      T data;
+      int timeout = 30;
+      while(serialPort->available() == 0 && timeout--) {
+        DEBUG_PRINT("waiting on serial for " + (String)sizeof(data));
+        vTaskDelay(20);
+      }
+      if(timeout <= 0) {
+        DEBUG_PRINT("Skipping");
+        return 0;
+      }
+      DEBUG_PRINT("avail " + (String)serialPort->available());
+    
+      int recv = serialPort->readBytes((uint8_t*)buffer, sizeof(data) * n);
+      DEBUG_PRINT("rx :" + (String)recv);
+      return recv;
+    }
     /**
      * @brief Consumes a raw command from the bus
      *

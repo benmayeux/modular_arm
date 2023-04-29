@@ -59,15 +59,15 @@ namespace base {
 
     command.data[0] = nJoints;
     bus.sendCommand(command);
-    for (int i = 0; i < nJoints * nDataIn; i++) {
-      bus.sendData<int16_t>(dataIn[i]);
-    }
+
+    bus.sendData<int16_t>(dataIn, nJoints * nDataIn);
+    
     command = bus.receiveCommand();
     DEBUG_PRINT(command.command);
     DEBUG_PRINT("Reading " + (String)(nJoints*nDataOut) +" words");
-    for (int i = 0; i < nJoints*nDataOut; i++) {
-      dataOut[i] = bus.receiveData<int16_t>();
-    }
+
+    bus.receiveData<int16_t>(dataOut, nJoints * nDataOut);
+    
     DEBUG_PRINT("Done");
     return command;
   }

@@ -389,7 +389,7 @@ void ServoModule::updatePosVelAcc(){
     // If the control loop time has passed,
     if(millis() - this->lastTimeCalculated > this->controlLoop_ms){
         // Read the raw potentiometer value
-        this->rawPotentiometerVal = analogRead(this->potentiometerPin);
+        this->rawPotentiometerVal =10;// = analogRead(this->potentiometerPin);
 
         // Save the last measured value into the lastPositionCentidegrees attribute
         this->lastPositionCentidegrees = this->currentPositionCentidegrees;
