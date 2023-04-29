@@ -40,7 +40,7 @@
         this->serialPort->read();
       }
       DEBUG_PRINT("send command");
-      sendData(c);
+      sendData<Command>(c);
     }
 
     /**
@@ -86,13 +86,25 @@
         currentCommand.command = CommandType::NOOP;
         while(This->serialPort->available()) {
             currentCommand = This->receiveCommand();
+
+            if(!currentCommand.isValid()) {
+              while(This->serialPort->available()) {
+                This->serialPort->read();
+              }
+              continue;
+            }
+
+
             // Configure Bus
             if (currentCommand.command == CommandType::CONFIGURE) {
               DEBUG_PRINT((String) This->address + ": Starting configure...");
               This->address = currentCommand.address++;
               This->sendCommand(currentCommand);
+              DEBUG_PRINT("Finsih command");
               Configuration c = This->delegate->getConfiguration();
+              DEBUG_PRINT("finish config");
               This->forwardAndAppend(c, This->address);
+              DEBUG_PRINT("Finish forward and append");
               currentCommand.command = CommandType::NOOP;
               This->updateCommand(currentCommand);
 
@@ -129,11 +141,10 @@
           
               continue;
             }
-
-            // Forward
+          
             This->sendCommand(currentCommand);
-            currentCommand.command = CommandType::NOOP;
-            This->updateCommand(currentCommand);
+            //currentCommand.command = CommandType::NOOP;
+            //This->updateCommand(currentCommand);
         }
       }
     }

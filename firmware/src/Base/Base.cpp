@@ -12,7 +12,7 @@ namespace base {
       delay(300);
       DEBUG_PRINT("SETUP");
       bus = UARTBus(0, &Serial2, &Serial2);
-      fetchConfiguration();
+      //fetchConfiguration();
   }
 
   bool Base::fetchConfiguration(int timeout) {
@@ -60,7 +60,7 @@ namespace base {
     command.data[0] = nJoints;
     bus.sendCommand(command);
     for (int i = 0; i < nJoints * nDataIn; i++) {
-      bus.sendData(dataIn[i]);
+      bus.sendData<int16_t>(dataIn[i]);
     }
     command = bus.receiveCommand();
     DEBUG_PRINT(command.command);
@@ -130,12 +130,27 @@ namespace base {
         }
         Serial.println();
         break;
+      case SerialInputCommandType::SET_ALL_POSITION:
+        n = calculateIK(dataBuffer, command.data[0],command.data[1],command.data[2]);
+        for (int i = 0; i < n; i++) {
+          dataBuffer[i] = command.data[i];
+        }
+        c = sendCarouselPosition(dataBuffer, n, dataBuffer);
+        Serial.println((String)n + ",JOINT,POS,EFF,VEL");
+        for (int i = 0; i < n; i++) {
+          Serial.print((String)(i + 1) + ",");
+          for (int j = 0; j < c.getNReturn(); j++) {
+            Serial.print((String)dataBuffer[c.getNReturn()*i + j] + ",");
+          }
+          Serial.println();
+        }
+        break;
       case SerialInputCommandType::SET_TASK_POSITION:
         n = calculateIK(dataBuffer, command.data[0],command.data[1],command.data[2]);
         c = sendCarouselPosition(dataBuffer, n, dataBuffer);
         Serial.println((String)n + ",JOINT,POS,EFF,VEL");
         for (int i = 0; i < n; i++) {
-          Serial.print((String)i + ",");
+          Serial.print((String)(i + 1) + ",");
           for (int j = 0; j < c.getNReturn(); j++) {
             Serial.print((String)dataBuffer[c.getNReturn()*i + j] + ",");
           }
@@ -161,6 +176,7 @@ namespace base {
           Serial.println();
         }
         break;
+
       case SerialInputCommandType::INVALID:
         DEBUG_PRINT("Invalid command!");
         break;

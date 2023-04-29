@@ -34,6 +34,7 @@ class UARTBus {
 
 
     template <typename T> void sendData(T data) {
+      DEBUG_PRINT("tx: " + (String) sizeof(data));
       serialPort->write((uint8_t*)&data, sizeof(data));
     }
 
@@ -92,9 +93,9 @@ class UARTBus {
     template <typename T> void forwardAndAppend(T data, uint8_t size) {
       size--;
       while(size--) {
-        sendData(receiveData<T>());
+        sendData<T>(receiveData<T>());
       }
-      sendData(data);
+      sendData<T>(data);
     }
 
         /**
@@ -104,9 +105,12 @@ class UARTBus {
      */
     template <typename T> T receiveData() {
       T data;
-      int avail = serialPort->available();
+      while(serialPort->available() == 0) {
+        vTaskDelay(1);
+      }
+      DEBUG_PRINT("avail " + (String)serialPort->available());
       serialPort->readBytes((uint8_t*)&data, sizeof(data));
-      
+      DEBUG_PRINT("rx " + ": " + sizeof(data));
       return data;
     }
 
