@@ -35,7 +35,11 @@ namespace base {
     c = bus.receiveCommand();
     DEBUG_PRINT("got "+ (String)c.command);
     nJoints = c.address - 1;
-    DEBUG_PRINT("joints: " + (String)nJoints);
+    if(nJoints < 0 || nJoints > 8) {
+      DEBUG_PRINT("Invalid number of joints..." + (String)nJoints);
+      nJoints = 0;
+    }
+    Serial.println("Num Modules: " + (String)nJoints);
     if(config) {
       delete[] config;
       config = NULL;
@@ -44,7 +48,7 @@ namespace base {
 
     for(int n = 0; n < nJoints; n++) {
       config[n] = bus.receiveConfiguration();
-      DEBUG_PRINT("joint " + (String)n + ":");
+      DEBUG_PRINT("joint " + (String)(n+1) + ":");
       DEBUG_PRINT("    length: " + (String)config[n].length);
       DEBUG_PRINT("    orientation: " + (String)config[n].orientation);
     }
@@ -118,6 +122,7 @@ namespace base {
     switch (command.commandType) {
       case SerialInputCommandType::RECONFIGURE:
         fetchConfiguration();
+      
         break;
       case SerialInputCommandType::SET_JOINT_POSITION:
         c = sendPosition(command.data[0], command.data[1]);
@@ -167,11 +172,11 @@ namespace base {
                                           CommandType::RETURN_VELOCITY), 
                                         nullptr, 0, dataBuffer, 3);
         DEBUG_PRINT("Sent...");
-        Serial.println((String)n + ",JOINT,POS,EFF,VEL");
+        //Serial.println((String)n + ",JOINT,POS,EFF,VEL");
         for (int i = 0; i < n; i++) {
-          Serial.print((String)i + ",");
+          Serial.print("Joint:" + (String)i);
           for (int j = 0; j < c.getNReturn(); j++) {
-            Serial.print((String)dataBuffer[c.getNReturn()*i + j] + ",");
+            Serial.print("," + (String)dataBuffer[c.getNReturn()*i + j]);
           }
           Serial.println();
         }

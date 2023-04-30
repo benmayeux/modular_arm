@@ -73,7 +73,7 @@ class UARTBus {
         receiveData<int16_t>(data, nForwardWords);
         DEBUG_PRINT("received data.");
         sendData<int16_t>(data, nForwardWords);
-      
+
         delete[] data;
       }
       DEBUG_PRINT("Sending data");
