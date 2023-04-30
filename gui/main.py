@@ -210,10 +210,10 @@ def update_serial_data():
                                     currentY.pop(0)
                                 currentT.append(round(time.time() * 1000) - start_time)
                                 currentY.append(float(line[j].strip()))
-            else:
-                if line != "":
-                    if not debugFlag and not line.startswith("DEBUG:"):
-                        print(line)
+            # else:
+            #     if line != "":
+            #         if not debugFlag and not line.startswith("DEBUG:"):
+            #             print(line)
 
         # line = cs.arduino.read_until(expected=bytes("\n", 'utf-8')).decode('utf-8')
         # print(line)
@@ -505,7 +505,7 @@ def update_custom():  # callback for updating custom window buttons based on the
 
     for i in range(int(newNumModules)):  # add joint input buttons
         with dpg.group(horizontal=True, width=110, parent="cus_joints", tag="cus_group" + str(i)):
-            dpg.add_input_float(label="Joint " + str(i), tag="cus_joint" + str(i), default_value=0, step=0.01)
+            dpg.add_input_float(label="Joint " + str(i), tag="cus_joint" + str(i), default_value=0, step=0.174533)
             dpg.add_button(label="Set", callback=sendSerialInput, user_data=["cus_joint" + str(i), "setJointPos", i],
                            tag="cus_set" + str(i))
 
@@ -541,6 +541,7 @@ def update_plot(name, x_data, y_data):
     # plotting new data
     dpg.set_value(name, [x_data, y_data])
     dpg.fit_axis_data(name + "_x_axis")
+    dpg.fit_axis_data(name + "_y_axis")
 
 
 def createSupportedWindow(modelName, numModules):
