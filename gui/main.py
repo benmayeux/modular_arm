@@ -1,5 +1,8 @@
 import math
 import time
+from spatialmath import SE3
+import sys
+import traceback
 
 import dearpygui.dearpygui as dpg
 import matplotlib
@@ -12,6 +15,8 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 from commandSender import commandSender
 import roboticstoolbox as rtb
 from RTBPyPlot import PyPlot  # copy of base library (rtb) but with changes
+
+debugFlag = True
 
 frames = 0  # keeps track of the number of frames
 prevNumModules = 1  # keeps track of previous amount of modules for button deletion
@@ -26,27 +31,31 @@ remakePyPlot = False  # to remake the plot inside te main thread (callbacks are 
 plotMade = False  # to prevent update from happening before plots are created
 pausedReadings = False  # to pause serial readings from updating plots
 
-# All the supported models, key = model name, first value = number of modules, second value = robot model
+lengthOfRLinks = 0.211201 # in m
+baseHOffset = 0.049276
+baseVOffset = 0.2014855
+
+# All the supported models, key = model name, first value = number of modules, second value = robot model, third value = wrist
 # NOTE: if you want to add a menu image for that model, go add it in dpg.texture_registry
 supportedModels = {"RRR": [3, rtb.DHRobot([
-            rtb.RevoluteDH(d=0.333, alpha=math.pi / 2),
-            rtb.RevoluteDH(a=0.333),
-            rtb.RevoluteDH(a=0.333)
-        ], name="RRR")],
+            rtb.RevoluteDH(d=baseVOffset, a=baseHOffset, alpha=-math.pi / 2),
+            rtb.RevoluteDH(a=lengthOfRLinks),
+            rtb.RevoluteDH(a=lengthOfRLinks)
+        ], name="RRR"), False],
                     "6DOF": [6, rtb.DHRobot([
-            rtb.RevoluteDH(d=0.333, alpha=math.pi / 2),
-            rtb.RevoluteDH(a=0.333),
-            rtb.RevoluteDH(a=0.333),
-            rtb.RevoluteDH(a=1),
-            rtb.RevoluteDH(a=1),
-            rtb.RevoluteDH(a=1)
-        ], name="6DOF")]}
+            rtb.RevoluteDH(d=baseVOffset, a=baseHOffset, alpha=-math.pi / 2),
+            rtb.RevoluteDH(a=lengthOfRLinks),
+            rtb.RevoluteDH(a=lengthOfRLinks),
+            rtb.RevoluteDH(),
+            rtb.RevoluteDH(alpha=-math.pi/2),
+            rtb.RevoluteDH(alpha=math.pi/2)
+        ], name="6DOF"), True]}
 
 dpg.create_context()  # important line needed at the beginning of every dpg script
 
 commsOpen = False
 try:
-    cs = commandSender(4)  # initialize serial command sender by COM port
+    cs = commandSender(12)  # initialize serial command sender by COM port
     commsOpen = True
     print("Serial connected!")
 except:
@@ -145,56 +154,90 @@ matplot, fig, ax = makePyPlot()  # initialize the plot
 
 def update_serial_data():
     # torque_value = None
+    global plotMade
 
     try:
 
-        # lines = cs.arduino.read_all().decode('utf-8').strip().split('\n')
+        lines = cs.arduino.read_all().decode('utf-8').strip().split('\n')
+
+        for line in lines:
+            if line.startswith("Received new command:"):
+                name = str(line.split(":")[1].strip())
+                print("Serial received the Command: " + name)
+            elif line.startswith("Values of:"):
+                values = line.split(":")[1].strip()
+                print("Serial received the Values: " + values)
+            # elif line.startswith("Torque:"):
+            #     torque_value = float(line.split(":")[1].strip())
+            elif line.startswith("Num Modules:"):
+                global serialModules
+                serialModules = int(line.split(":")[1].strip())
+                # print("Number of modules: " + str(serialModules))
+            elif line.startswith("Joint:"):
+                line = line.split(":")[1]
+                line = line.split(",")
+                if debugFlag:
+                    print("Recieved joint data: " + str(line))
+                jointNum = int(line[0])
+                if jointNum < newNumModules:
+                    if plotMade:
+                        for j in range(len(line)):
+                            if j == 2:  # should be torque data in serial
+                                currentT = plot_t[dataCategories * jointNum + torque_location]
+                                currentY = plot_datay[dataCategories * jointNum + torque_location]
+
+                                if len(currentT) > 200:
+                                    currentT.pop(0)
+                                    currentY.pop(0)
+                                currentT.append(round(time.time()*1000) - start_time)
+                                currentY.append(float(line[j].strip()))
+                            if j == 3:  # should be velocity data
+                                currentT = plot_t[dataCategories * jointNum + velocity_location]
+                                currentY = plot_datay[dataCategories * jointNum + velocity_location]
+
+                                if len(currentT) > 200:
+                                    currentT.pop(0)
+                                    currentY.pop(0)
+                                currentT.append(round(time.time() * 1000) - start_time)
+                                currentY.append(float(line[j].strip()))
+            else:
+                if line != "":
+                    if not debugFlag and not line.startswith("DEBUG:"):
+                        print(line)
+
+        # line = cs.arduino.read_until(expected=bytes("\n", 'utf-8')).decode('utf-8')
+        # print(line)
+        # numOfLines = int(line.split(",")[0].strip())
         #
-        # for line in lines:
-        #     if line.startswith("Received new command:"):
-        #         name = str(line.split(":")[1].strip())
-        #         print("Serial received the Command: " + name)
-        #     elif line.startswith("Values of:"):
-        #         values = line.split(":")[1].strip()
-        #         print("Serial received the Values: " + values)
-        #     elif line.startswith("Torque:"):
-        #         torque_value = float(line.split(":")[1].strip())
-        #     elif line.startswith("Num Modules:"):
-        #         global serialModules
-        #         serialModules = float(line.split(":")[1].strip())
-
-        line = cs.arduino.read_until(expected=bytes("\n", 'utf-8')).decode('utf-8')
-        numOfLines = int(line.split(",")[0].strip())
-        global serialModules
-        serialModules = numOfLines
-        for i in range(numOfLines):
-            line = cs.arduino.read_until(expected=bytes("\n", 'utf-8')).decode('utf-8').split(",")
-
-            for j in range(len(line)):
-                if j == 2:  # should be torque data in serial
-                    currentT = plot_t[dataCategories * i + torque_location]
-                    currentY = plot_datay[dataCategories * i + torque_location]
-
-                    if len(currentT) > 200:
-                        currentT.pop(0)
-                        currentY.pop(0)
-                    currentT.append(round(time.time()*1000) - start_time)
-                    currentY.append(float(line[j].strip))
-                if j == 3:  # should be velocity data
-                    currentT = plot_t[dataCategories * i + velocity_location]
-                    currentY = plot_datay[dataCategories * i + velocity_location]
-
-                    if len(currentT) > 200:
-                        currentT.pop(0)
-                        currentY.pop(0)
-                    currentT.append(round(time.time() * 1000) - start_time)
-                    currentY.append(float(line[j].strip))
-
-            # else:
-            #     if line != "":
-            #         print(line)
-    except:
-        # print("decode error")
+        # global serialModules
+        # serialModules = numOfLines
+        #
+        # for i in range(numOfLines):
+        #     line = cs.arduino.read_until(expected=bytes("\n", 'utf-8')).decode('utf-8').split(",")
+        #     print(line)
+        #
+        #     for j in range(len(line)):
+        #         if j == 2:  # should be torque data in serial
+        #             currentT = plot_t[dataCategories * i + torque_location]
+        #             currentY = plot_datay[dataCategories * i + torque_location]
+        #
+        #             if len(currentT) > 200:
+        #                 currentT.pop(0)
+        #                 currentY.pop(0)
+        #             currentT.append(round(time.time()*1000) - start_time)
+        #             currentY.append(float(line[j].strip))
+        #         if j == 3:  # should be velocity data
+        #             currentT = plot_t[dataCategories * i + velocity_location]
+        #             currentY = plot_datay[dataCategories * i + velocity_location]
+        #
+        #             if len(currentT) > 200:
+        #                 currentT.pop(0)
+        #                 currentY.pop(0)
+        #             currentT.append(round(time.time() * 1000) - start_time)
+        #             currentY.append(float(line[j].strip))
+    except Exception as e:
+        traceback.print_exc()
+        # print("decode error: " + str(e))
         return
 
     # if torque_value is not None:
@@ -215,11 +258,26 @@ def sendSerialInput(sender, app_data, user_data):  # function for obtaining data
     if commandName == "setTaskPos":
         # x=[0], y =[2], z=[1]
         x = commandName + "," + str(relatedValue[0]) + "," + str(relatedValue[2]) + "," + str(relatedValue[1])
+
+        if modelType != "cus":
+            T = SE3.Trans(relatedValue[0], relatedValue[2], relatedValue[1]) * SE3.Rx(math.pi/2)
+            sol = robot.ik_nr(T, we=[1, 1, 1, 0, 0, 0])
+            # print(sol[1])
+            if not sol[1]:  # no solution
+                print("No Solution!")
+                warningBox("No IK Solution", "It seems the task space input has no valid solution. Try a different one.")
+                # return
+            qs = sol[0]
+            print(sol)
+            print(T)
+            print(robot.fkine(qs))
+            makeRobot(qs)
+
     elif commandName == "setJointPos":
-        if relatedValue > 50:
+        if relatedValue > 1.57:
             warningBox("Warning: Joint Limit Exceeded", "You have exceeded the joint limit, try a new value")
             return
-        x = commandName + "," + str(user_data[2]) + "," + str(relatedValue/0.017453*100)
+        x = commandName + "," + str(user_data[2]+1) + "," + str(relatedValue/0.017453*100)
 
         if modelType != "cus":
             # update matplot for robot sim
@@ -271,16 +329,17 @@ def addJointControlInput(config_name, n_modules):
             for i in range(n_modules):
                 with dpg.group(horizontal=True, tag="joint" + str(i) + config_name + "Group"):
                     dpg.add_input_float(label="Joint " + str(i), tag="joint" + str(i) + config_name,
-                                        default_value=0, step=0.01)
+                                        default_value=0, step=0.174533)
                     dpg.add_button(label="Set", callback=sendSerialInput,
                                    user_data=["joint" + str(i) + config_name, "setJointPos", i])
                     # user data = [tag of corresponding input_float, Serial command name, joint number]
 
 
-def addTaskSpaceInput(config_name):
+def addTaskSpaceInput(config_name, xmax, xmin, ymax, ymin, zmax, zmin):
     with dpg.collapsing_header(label="Task Space Control"):
         dpg.add_3d_slider(label="Workspace (mm)", tag="task" + config_name, scale=0.3, callback=update_slider_inputs,
-                          user_data=[config_name + "x", config_name + "y", config_name + "z"])
+                          user_data=[config_name + "x", config_name + "y", config_name + "z"],
+                          max_x=xmax, min_x=xmin, max_z=ymax, min_z=ymin, max_y=zmax, min_y=zmin)
         with dpg.group(horizontal=True):
             dpg.add_input_float(label="x", tag=config_name + "x", callback=update_3d_slider,
                                 user_data=["task" + config_name, "x"], width=110)
@@ -319,12 +378,15 @@ def addPlot(name, x_name, y_name, x_data, y_data):
 
 
 def addPlotSection(configName):
+    global newNumModules, plotMade
+    plotMade = False
+
     dpg.delete_item(configName+"_plots")
 
     with dpg.collapsing_header(label="Data Collection", tag=configName+"_plots", parent=configName+"_window"):
         dpg.add_text("Live Data from Robot")
 
-    global newNumModules, plotMade
+    # print(newNumModules)
     numberOfPlotsPerRow = 3
     with dpg.tree_node(label="Torques", parent=configName + "_plots"):
         moduleNumber = 0  # to keep track of which module plot is being created
@@ -359,6 +421,9 @@ def window_change(sender, app_data, user_data):  # callback for changing windows
     dpg.configure_item(user_data[0], show=False)
     dpg.configure_item(newWindow, show=True)
     dpg.set_primary_window(user_data[1], True)
+
+    if commsOpen:
+        cs.write("reconfigure;")
 
     global modelType, numOfDataSets, dataCategories, newNumModules, plotMade, supportedModels
     plotMade = False
@@ -408,7 +473,7 @@ def update_custom():  # callback for updating custom window buttons based on the
         file.close()
         newNumModules = int(content)
 
-    print("New num of modules: " + str(newNumModules))
+    # print("New num of modules: " + str(newNumModules))
 
     dpg.delete_item("starting_cus")  # remove the text that informed user what to do at start
     global prevNumModules
@@ -462,7 +527,11 @@ def createSupportedWindow(modelName, numModules):
         dpg.add_separator()
 
         addJointControlInput(modelName, numModules)
-        addTaskSpaceInput(modelName)
+        if supportedModels[modelName][2]:
+            reach = (numModules - 4) * lengthOfRLinks
+        else:
+            reach = (numModules-1)*lengthOfRLinks
+        addTaskSpaceInput(modelName, reach+baseHOffset, -(reach+baseHOffset), reach+baseHOffset, -(reach+baseHOffset), reach+baseVOffset, -reach+baseVOffset)
 
         with dpg.collapsing_header(label="Robot Simulation"):
             dpg.add_image("matplot")
@@ -562,8 +631,10 @@ while dpg.is_dearpygui_running():  # this starts the runtime loop
         remakePyPlot = False
     else:
         if commsOpen:
-            if frames % 50 == 0:
-                cs.write("poll")
+            if frames % 100 == 0:
+                cs.write("reconfigure;")
+                cs.write("poll;")
+            if frames % 25 == 0:
                 update_serial_data()  # for serial reading testing
         else:
             update_fake_data()  # for dynamic graph testing

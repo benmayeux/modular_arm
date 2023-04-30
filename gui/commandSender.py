@@ -5,7 +5,7 @@ import time
 class commandSender():
 
     def __init__(self,comPort) -> None:
-        self.arduino = serial.Serial(port='COM' + str(comPort), baudrate=9600, timeout=0.1)
+        self.arduino = serial.Serial(port='COM' + str(comPort), baudrate=115200, timeout=0.1)
 
     # write bytes
     def write_read(self,x):
