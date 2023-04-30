@@ -16,7 +16,7 @@ from commandSender import commandSender
 import roboticstoolbox as rtb
 from RTBPyPlot import PyPlot  # copy of base library (rtb) but with changes
 
-debugFlag = True
+debugFlag = False
 
 frames = 0  # keeps track of the number of frames
 prevNumModules = 1  # keeps track of previous amount of modules for button deletion
@@ -63,11 +63,12 @@ except:
 
 plot_t = []  # stores x-axis data (usually time)
 plot_datay = []  # stores y-axis data (the interesting data like torque)
-dataCategories = 2  # stores number of data categories per joint (torque and velocity = 2)
+dataCategories = 3  # stores number of data categories per joint (torque and velocity = 2)
 numOfDataSets = 3 * dataCategories  # stores number of data sets/expected graphs
 
 # NOTE: make sure that the below are in numerical order starting from 0
-torque_location = 0  # index for torque data in array
+position_location = 0
+torque_location = 2  # index for torque data in array
 velocity_location = 1  # index for velocity data in array
 
 
@@ -182,6 +183,15 @@ def update_serial_data():
                 if jointNum < newNumModules:
                     if plotMade:
                         for j in range(len(line)):
+                            if j == 1:  # should be position data in serial
+                                currentT = plot_t[dataCategories * jointNum + position_location]
+                                currentY = plot_datay[dataCategories * jointNum + position_location]
+
+                                if len(currentT) > 200:
+                                    currentT.pop(0)
+                                    currentY.pop(0)
+                                currentT.append(round(time.time()*1000) - start_time)
+                                currentY.append(float(line[j].strip())/100*0.0174532925)
                             if j == 2:  # should be torque data in serial
                                 currentT = plot_t[dataCategories * jointNum + torque_location]
                                 currentY = plot_datay[dataCategories * jointNum + torque_location]
@@ -356,7 +366,7 @@ def addPlot(name, x_name, y_name, x_data, y_data):
     """Make sure to use updatePlot function in running loop if dynamic"""
     with dpg.plot(label=name, height=400, width=400):
         # optionally create legend
-        dpg.add_plot_legend()
+        # dpg.add_plot_legend()
 
         # REQUIRED: create x and y axes
         dpg.add_plot_axis(dpg.mvXAxis, label=x_name, tag=name + '_x_axis')
@@ -390,14 +400,15 @@ def addPlotSection(configName):
 
     # print(newNumModules)
     numberOfPlotsPerRow = 3
-    with dpg.tree_node(label="Torques", parent=configName + "_plots"):
+    with dpg.tree_node(label="Positions", parent=configName + "_plots"):
         moduleNumber = 0  # to keep track of which module plot is being created
-        for i in range(math.ceil(newNumModules/numberOfPlotsPerRow)):
+        for i in range(math.ceil(newNumModules / numberOfPlotsPerRow)):
             with dpg.group(horizontal=True):
                 for j in range(numberOfPlotsPerRow):
-                    if moduleNumber <= newNumModules-1:
-                        addPlot(configName + " Torque Joint" + str(moduleNumber), "Time", "Torque", plot_t[dataCategories * moduleNumber + torque_location],
-                                plot_datay[dataCategories * moduleNumber + torque_location])
+                    if moduleNumber <= newNumModules - 1:
+                        addPlot(configName + " Position Joint" + str(moduleNumber), "Time", "Position (rad)",
+                                plot_t[dataCategories * moduleNumber + position_location],
+                                plot_datay[dataCategories * moduleNumber + position_location])
                     moduleNumber += 1
     with dpg.tree_node(label="Velocities", parent=configName + "_plots"):
         moduleNumber = 0  # to keep track of which module plot is being created
@@ -408,6 +419,16 @@ def addPlotSection(configName):
                         addPlot(configName + " Velocity Joint" + str(moduleNumber), "Time", "Velocity",
                                 plot_t[dataCategories * moduleNumber + velocity_location],
                                 plot_datay[dataCategories * moduleNumber + velocity_location])
+                    moduleNumber += 1
+    with dpg.tree_node(label="Torques", parent=configName + "_plots"):
+        moduleNumber = 0  # to keep track of which module plot is being created
+        for i in range(math.ceil(newNumModules / numberOfPlotsPerRow)):
+            with dpg.group(horizontal=True):
+                for j in range(numberOfPlotsPerRow):
+                    if moduleNumber <= newNumModules - 1:
+                        addPlot(configName + " Torque Joint" + str(moduleNumber), "Time", "Torque",
+                                plot_t[dataCategories * moduleNumber + torque_location],
+                                plot_datay[dataCategories * moduleNumber + torque_location])
                     moduleNumber += 1
         # with dpg.group(horizontal=True):
         #     for i in range(newNumModules):
@@ -644,6 +665,8 @@ while dpg.is_dearpygui_running():  # this starts the runtime loop
         if modelType is not None and plotMade:
             if not pausedReadings:
                 for i in range(int(newNumModules)):  # for each joint
+                    update_plot(modelType + " Position Joint" + str(i), plot_t[dataCategories * i + position_location],
+                                plot_datay[dataCategories * i + position_location])
                     update_plot(modelType + " Torque Joint" + str(i), plot_t[dataCategories * i + torque_location],
                                 plot_datay[dataCategories * i + torque_location])  # custom function to update a plot
                     update_plot(modelType + " Velocity Joint" + str(i), plot_t[dataCategories * i + velocity_location],
