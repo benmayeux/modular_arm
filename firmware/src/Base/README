@@ -12,12 +12,12 @@ int z in meters
 
 
 
-## setJointPos,x
+## setJointPos,x;
 int x in centidegrees
 
 
 
-## setAllPos,j1,j2,j3,j4...
+## setAllPos,j1,j2,j3,j4...;
 int j is position in centidegrees
 
 ## poll;
