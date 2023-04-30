@@ -42,14 +42,14 @@ supportedModels = {"RRR": [3, rtb.DHRobot([
             rtb.RevoluteDH(a=lengthOfRLinks),
             rtb.RevoluteDH(a=lengthOfRLinks)
         ], name="RRR"), False],
-                    "6DOF": [6, rtb.DHRobot([
+                    "SPR": [6, rtb.DHRobot([
             rtb.RevoluteDH(d=baseVOffset, a=baseHOffset, alpha=-math.pi / 2),
             rtb.RevoluteDH(a=lengthOfRLinks),
             rtb.RevoluteDH(a=lengthOfRLinks),
             rtb.RevoluteDH(),
             rtb.RevoluteDH(alpha=-math.pi/2),
             rtb.RevoluteDH(alpha=math.pi/2)
-        ], name="6DOF"), True]}
+        ], name="SPR"), True]}
 
 dpg.create_context()  # important line needed at the beginning of every dpg script
 
@@ -337,7 +337,7 @@ def addMenubar():  # makes the menu bar, such that it's consistent across window
 
 def addJointControlInput(config_name, n_modules):
     with dpg.collapsing_header(label="Joint Control", default_open=True):
-        with dpg.group(width=110):
+        with dpg.group(width=160):
             for i in range(n_modules):
                 with dpg.group(horizontal=True, tag="joint" + str(i) + config_name + "Group"):
                     dpg.add_input_float(label="Joint " + str(i), tag="joint" + str(i) + config_name,
@@ -354,12 +354,12 @@ def addTaskSpaceInput(config_name, xmax, xmin, ymax, ymin, zmax, zmin):
                           max_x=xmax, min_x=xmin, max_z=ymax, min_z=ymin, max_y=zmax, min_y=zmin)
         with dpg.group(horizontal=True):
             dpg.add_input_float(label="x", tag=config_name + "x", callback=update_3d_slider,
-                                user_data=["task" + config_name, "x"], width=110)
+                                user_data=["task" + config_name, "x"], width=160)
             dpg.add_input_float(label="y", tag=config_name + "y", callback=update_3d_slider,
-                                user_data=["task" + config_name, "y"], width=110)
+                                user_data=["task" + config_name, "y"], width=160)
             dpg.add_input_float(label="z", tag=config_name + "z", callback=update_3d_slider,
-                                user_data=["task" + config_name, "z"], width=110)
-        dpg.add_button(label="Set", callback=sendSerialInput, user_data=["task" + config_name, "setTaskPos"])
+                                user_data=["task" + config_name, "z"], width=160)
+        dpg.add_button(label="Set", width=110, callback=sendSerialInput, user_data=["task" + config_name, "setTaskPos"])
 
 
 def addPlot(name, x_name, y_name, x_data, y_data):
@@ -504,7 +504,7 @@ def update_custom():  # callback for updating custom window buttons based on the
         dpg.delete_item("cus_group" + str(i))
 
     for i in range(int(newNumModules)):  # add joint input buttons
-        with dpg.group(horizontal=True, width=110, parent="cus_joints", tag="cus_group" + str(i)):
+        with dpg.group(horizontal=True, width=160, parent="cus_joints", tag="cus_group" + str(i)):
             dpg.add_input_float(label="Joint " + str(i), tag="cus_joint" + str(i), default_value=0, step=0.174533)
             dpg.add_button(label="Set", callback=sendSerialInput, user_data=["cus_joint" + str(i), "setJointPos", i],
                            tag="cus_set" + str(i))
@@ -574,16 +574,26 @@ def pausePlots():
 """GUI structure"""
 
 # load images
-RRR_width, RRR_height, RRR_channels, RRR_data = dpg.load_image("RRR.png")
+RRR_width, RRR_height, RRR_channels, RRR_data = dpg.load_image("RRR_image.png")
+SPR_width, SPR_height, SPR_channels, SPR_data = dpg.load_image("SPR_image.png")
 cus_width, cus_height, cus_channels, cus_data = dpg.load_image("custom.png")
 
 with dpg.texture_registry(show=False):
     # menu images
     dpg.add_static_texture(width=RRR_width, height=RRR_height, default_value=RRR_data, tag="RRR_image")
+    dpg.add_static_texture(width=SPR_width, height=SPR_height, default_value=SPR_data, tag="SPR_image")
     dpg.add_static_texture(width=cus_width, height=cus_height, default_value=cus_data, tag="cus_image")
 
     # matplot simulation
     dpg.add_raw_texture(fig_width * 100, fig_height * 100, matplot, format=dpg.mvFormat_Float_rgba, tag="matplot")
+
+# add a font registry
+with dpg.font_registry():
+    # first argument ids the path to the .ttf or .otf file
+    # default_font = dpg.add_font("NotoSerifCJKjp-Medium.otf", 20)
+    default_font = dpg.add_font("ProggyClean.ttf", 20)
+
+dpg.bind_font(default_font)
 
 # Windows
 with dpg.window(tag="Primary Window"):
@@ -591,20 +601,38 @@ with dpg.window(tag="Primary Window"):
     dpg.add_text("Select your arm config")
     dpg.add_separator()
 
-    with dpg.group(horizontal=True):
-        for model in supportedModels:
-            with dpg.group():
-                dpg.add_text(model)
-                try:
-                    dpg.add_image(model+"_image")
-                except:
-                    print("No such image")
-                dpg.add_button(label="Select###"+model, callback=window_change, user_data=["Primary Window", model+"_window"])
+    numOfSupportedConfigs = len(supportedModels)
+    modelNames = list(supportedModels.keys())
+    numberOfIconsPerRow = 2
+    modelNumber = 0  # to keep track of which module plot is being created
+    for i in range(math.ceil(numOfSupportedConfigs / numberOfIconsPerRow)):
+        with dpg.group(horizontal=True):
+            for j in range(numberOfIconsPerRow):
+                if modelNumber < numOfSupportedConfigs:
+                    model = modelNames[modelNumber]
+                    with dpg.group():
+                        dpg.add_text(model)
+                        try:
+                            dpg.add_image(model + "_image")
+                        except:
+                            print("No such image")
+                        dpg.add_button(label="Select###" + model, callback=window_change,
+                                       user_data=["Primary Window", model + "_window"], width=RRR_width)
+                modelNumber += 1
+
+        # for model in supportedModels:
+        #     with dpg.group():
+        #         dpg.add_text(model)
+        #         try:
+        #             dpg.add_image(model+"_image")
+        #         except:
+        #             print("No such image")
+        #         dpg.add_button(label="Select###"+model, callback=window_change, user_data=["Primary Window", model+"_window"])
 
         with dpg.group():
             dpg.add_text("Custom")
             dpg.add_image("cus_image")
-            dpg.add_button(label="Select###cus", callback=window_change, user_data=["Primary Window", "cus_window"])
+            dpg.add_button(label="Select###cus", callback=window_change, user_data=["Primary Window", "cus_window"], width=cus_width)
 
 for model in supportedModels:
     createSupportedWindow(model, supportedModels[model][0])
@@ -627,6 +655,7 @@ dpg.set_primary_window("Primary Window", True)  # True = set in/fill up the view
 # dpg.show_debug()
 # dpg.show_about()
 # dpg.show_metrics()
+# dpg.show_font_manager()
 
 # below replaces, start_dearpygui()
 while dpg.is_dearpygui_running():  # this starts the runtime loop
