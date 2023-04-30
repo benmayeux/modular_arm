@@ -20,10 +20,15 @@ uint32_t lastTime = millis();
 int16_t effort = 127;
 int8_t pwn_pins[3] = {13,26,32};
 void setup() {
-  Serial.begin(9600);
+  
+  Serial.begin(115200);
   Serial2.begin(115200);
+  
+  delay(3000);
+  while(Serial2.available()) {
+    Serial2.read();
+  }
 
-  delay(100);
   for (int i = 0; i < N_JOINTS -1; i++) {
     streams[i] = new LoopbackStream();
   }
@@ -44,6 +49,7 @@ void setup() {
       modules[i]->setup(streams[i-1], streams[i]);
     }
   }
+  delay(3000);
   // Run the module setup (reads calibration data from EEPROM, determines mounting orientation, waits for communication from base module)
 }
 

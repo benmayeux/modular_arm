@@ -106,7 +106,8 @@ void BasicModule::stateMachine(){
         break;
 
         case MODE_CALIBRATION:
-            this->controlLoopCalibration();
+            // This is disabled as implementation of it was not completed
+            // this->controlLoopCalibration();
         break;
 
         default: // Default will set the mode to disable, then run the DISABLE case this iteration
@@ -144,7 +145,7 @@ void BasicModule::controlLoopPosition(bool Reset){
     float P = Err * this->posKp; // Calculate P term
     static float I = 0; // Create static var to hold I
     float D = (Err - lastErr) * posKd; // Calculate D term
-    
+
     if(Reset){ // Reset I term when needed, and exit function
         I = 0;
         return;
@@ -156,7 +157,15 @@ void BasicModule::controlLoopPosition(bool Reset){
         this->readyToUpdatePID = false; // Reset flag
     }
 
-    this->setEffortPrivate(P+I+D); // Set motor effort (argument is limited to int8_t)
+    if(abs(P+I+D) >= 15){
+        this->setEffortPrivate(P+I+D); // Set motor effort (argument is limited to int8_t)
+    }else if(abs(P+I+D) >= this->PIDMotorEffortDeadband){
+        this->setEffortPrivate((abs(P+I+D)/(P+I+D))*this->minimumMotorEffortForMovement);
+    }else{
+        this->setEffortPrivate(0);
+    }
+
+    
 }
 
 
@@ -215,51 +224,57 @@ void BasicModule::controlLoopCalibration(){
 void BasicModule::setup(Stream* in, Stream* out){
     // Set initial mode (disabled)
         this->mode = MODE_DISABLE;
-        this->dataBus = UARTBus(this, in, out);
+
+        #ifndef MAIN_BASIC_MODULE_STANDALONE_TESTING
+            this->dataBus = UARTBus(this, in, out);
+            DEBUG_PRINT(xPortGetCoreID());
+            DEBUG_PRINT("SETUP...");
+            this->dataBus.startComms();
+        #endif
 
     // No longer pulling from flash
     // Pull calibration data from flash
         // Begin EEPROM
-// #ifdef SIMULATION
-//         EEPROM.begin();
-// #else
-//         EEPROM.begin(4);
-// #endif
+#ifdef SIMULATION
+        EEPROM.begin();
+#else
+        EEPROM.begin(4);
+#endif
 
-//         // Read values from flash and format into 16 bit unsigned integers
-//         uint16_t minPotRange = read16BitFromEEPROM(0,1);
-//         uint16_t maxPotRange = read16BitFromEEPROM(2,3);
+        // Read values from flash and format into 16 bit unsigned integers
+        uint16_t minPotRange = read16BitFromEEPROM(0,1);
+        uint16_t maxPotRange = read16BitFromEEPROM(2,3);
 
-//         // Check that the minPotRange is reasonable, and update in EEPROM to default value if it is not reasonable
-//         DEBUG_PRINT("minPotRange read from flash: ");
-//         DEBUG_PRINT(minPotRange);
-//         if(minPotRange > 2048){// Check that value is reasonable (MUST be less than 2048). If it is not, update to default
-//             minPotRange = 1024; // default is from 1/4 of rotation to 3/4 of rotation of potentiometer
-//             DEBUG_PRINT("Updated minPotRange to: ");
-//             DEBUG_PRINT(minPotRange);
+        // Check that the minPotRange is reasonable, and update in EEPROM to default value if it is not reasonable
+        DEBUG_PRINT("minPotRange read from flash: ");
+        DEBUG_PRINT(minPotRange);
+        if(minPotRange > 2048){// Check that value is reasonable (MUST be less than 2048). If it is not, update to default
+            minPotRange = 1024; // default is from 1/4 of rotation to 3/4 of rotation of potentiometer
+            DEBUG_PRINT("Updated minPotRange to: ");
+            DEBUG_PRINT(minPotRange);
 
-//             if(save16BitToEEPROM(minPotRange,0,1)){ // Save the default value to EEPROM
-//                 DEBUG_PRINT("minPotRange saved to EEPROM");
-//             }else{
-//                 DEBUG_PRINT("minPotRange FAILED to save to EEPROM");
-//             }
-//         }
-//         this->minPotentiometerRange = minPotRange;
+            if(save16BitToEEPROM(minPotRange,0,1)){ // Save the default value to EEPROM
+                DEBUG_PRINT("minPotRange saved to EEPROM");
+            }else{
+                DEBUG_PRINT("minPotRange FAILED to save to EEPROM");
+            }
+        }
+        this->minPotentiometerRange = minPotRange;
 
-//         DEBUG_PRINT("maxPotRange read from flash: ");
-//         DEBUG_PRINT(maxPotRange);
-//         if(maxPotRange >= 4095 or maxPotRange <= 2048){// If the value hasnt been saved yet, or was saved/read incorrect, or is well below a reasonable value, set it to default
-//             maxPotRange = 3072; // default is from 1/4 of rotation to 3/4 of rotation
-//             DEBUG_PRINT("Updated maxPotRange to: ");
-//             DEBUG_PRINT(maxPotRange);
+        DEBUG_PRINT("maxPotRange read from flash: ");
+        DEBUG_PRINT(maxPotRange);
+        if(maxPotRange >= 4095 or maxPotRange <= 2048){// If the value hasnt been saved yet, or was saved/read incorrect, or is well below a reasonable value, set it to default
+            maxPotRange = 3072; // default is from 1/4 of rotation to 3/4 of rotation
+            DEBUG_PRINT("Updated maxPotRange to: ");
+            DEBUG_PRINT(maxPotRange);
 
-//             if(save16BitToEEPROM(maxPotRange,2,3)){
-//                 DEBUG_PRINT("maxPotRange saved to EEPROM");
-//             }else{
-//                 DEBUG_PRINT("maxPotRange FAILED to save to EEPROM");
-//             }
-//         }
-//         this->maxPotentiometerRange = maxPotRange;
+            if(save16BitToEEPROM(maxPotRange,2,3)){
+                DEBUG_PRINT("maxPotRange saved to EEPROM");
+            }else{
+                DEBUG_PRINT("maxPotRange FAILED to save to EEPROM");
+            }
+        }
+        this->maxPotentiometerRange = maxPotRange;
 
     // Determine and set the orientation flag
     // Confirm that you can digitalRead in the setup loop
@@ -276,10 +291,15 @@ void BasicModule::setup(Stream* in, Stream* out){
 
 void BasicModule::loop() {
     // sense
-    this->updatePosVelAcc(); 
+    this->updatePosVelAcc();
     // process
-    Command command = this->dataBus.handleCommunication();
+
+    // Allows for standalone calibration and testing of modules without commands being overridden
+    #ifndef MAIN_BASIC_MODULE_STANDALONE_TESTING
+    Command command = this->dataBus.getCurrentCommand();
     this->processCommand(command);
+    #endif
+
     // act
     this->stateMachine();
 }

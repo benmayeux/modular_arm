@@ -277,6 +277,7 @@ def sendSerialInput(sender, app_data, user_data):  # function for obtaining data
         if relatedValue > 1.57:
             warningBox("Warning: Joint Limit Exceeded", "You have exceeded the joint limit, try a new value")
             return
+
         x = commandName + "," + str(user_data[2]+1) + "," + str(relatedValue/0.017453*100)
 
         if modelType != "cus":
@@ -292,6 +293,7 @@ def sendSerialInput(sender, app_data, user_data):  # function for obtaining data
 
     if commsOpen:
         cs.write(x)
+
         print("Sent Serial:" + x)
     else:
         print(x)

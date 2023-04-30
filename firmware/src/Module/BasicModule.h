@@ -40,6 +40,8 @@ class BasicModule: public UARTBusDataDelegate {
         int8_t getEffort();
         bool getArmOrientation();
         int8_t isActuatorWithinLimits();
+        static bool save16BitToEEPROM(uint16_t numToSave, uint8_t mem1, uint8_t mem2);
+        static uint16_t read16BitFromEEPROM(uint8_t mem1, uint8_t mem2);
 
         // MODEs of the module
         enum MODE {MODE_DISABLE, MODE_EFFORT, MODE_POSITION, MODE_VELOCITY, MODE_CALIBRATION};
@@ -66,8 +68,7 @@ class BasicModule: public UARTBusDataDelegate {
         void controlLoopPosition(bool Reset = false);
         void controlLoopVelocity();
         void controlLoopCalibration();
-        static bool save16BitToEEPROM(uint16_t numToSave, uint8_t mem1, uint8_t mem2);
-        static uint16_t read16BitFromEEPROM(uint8_t mem1, uint8_t mem2);
+        
 
 
 
@@ -106,16 +107,21 @@ class BasicModule: public UARTBusDataDelegate {
         // Maximum angle reached during calibration (When moving part is contacting stationary part)
         const int16_t maxAngle = 90; // Max angle reached during calibration to the nearest degree
         
+        // Deadband where below this value, motor effort is set to zero
+        const int8_t PIDMotorEffortDeadband = 5;
+
+        // Minimum motor effort required to allow motor to move  
+        const int8_t minimumMotorEffortForMovement = 10;
         
         // Control Loop Variables/Methods:------------------------------------------------------
         void updatePosVelAcc();
 
         // TODO: Determine good PID values for position and velocity control for turnkey functionality
         // PID Kp value for Positioning control loop
-        float posKp = 1;
+        float posKp = 5;
 
         // PID Ki value for Positioning control loop
-        float posKi = 0;
+        float posKi = 0.03;
 
         // PID Kd value for Positioning control loop
         float posKd = 0;

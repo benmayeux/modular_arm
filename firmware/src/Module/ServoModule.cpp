@@ -30,7 +30,7 @@
     @param uint8_t mountingOrientationSwitchPin : The GPIO Pin to use to determine the module orientation 
 */
 ServoModule::ServoModule(uint8_t PWMPin, uint8_t mountingOrientationSwitchPin){
-    this->motor.attach(PWMPin);
+    //this->motor.attach(PWMPin);
     this->PWMPin = PWMPin;
     this->mountingOrientationSwitchPin = mountingOrientationSwitchPin;
 }
@@ -65,10 +65,7 @@ Configuration ServoModule::getConfiguration() {
 void ServoModule::processCommand(Command c) {
     switch(c.getCommandTarget()) {
         case CommandType::EFFORT:
-            DEBUG_PRINT((String) dataBus.address + ": setting effort to " + (String)c.data[0]);
-            this->mode = MODE_EFFORT;
-            this->setEffort(c.data[0]);
-            break;
+            // not used default to position control
         case CommandType::POSITION:
             DEBUG_PRINT((String) dataBus.address + ": setting pos to " + (String)c.data[0]);
             this->mode = MODE_POSITION;
@@ -89,10 +86,12 @@ void ServoModule::stateMachine(){
             currentVelocityCentidegrees, lastVelocityCentidegrees
             currentAccelCentidegrees
     */
-   
+   setPosition(0);
     switch(this->getMode()){
-        case MODE_EFFORT: // not effort controlled should not use
-            this->controlLoopEffort(); 
+        case MODE_EFFORT: 
+            // not effort controlled servos should not use
+            // this->controlLoopEffort(); 
+            this->controlLoopPosition();
         break;
 
         case MODE_POSITION:
@@ -104,25 +103,16 @@ void ServoModule::stateMachine(){
         break;
 
         case MODE_CALIBRATION:
-            this->controlLoopCalibration();
         break;
 
         default: // Default will set the mode to disable, then run the DISABLE case this iteration
             this->setMode(MODE_DISABLE);
         case MODE_DISABLE:
             // Sets motor effort to zero
-            this->setPosition(90);
+            this->setPosition(0);
             this->setMode(MODE_DISABLE);// setEffort changes mode to MODE_EFFORT, this changes it back
         break;
     }
-}
-
-/*
-    The control loop that the state machine runs when in MODE_EFFORT
-    - Sends raw effort commands to motor as long as it does not cause joint exceed bounds
-*/
-void ServoModule::controlLoopEffort(){
-    this->setEffort(this->motorEffort); // Runs this method, requires user to set effort using setEffort() method
 }
 
 /*
@@ -132,59 +122,20 @@ void ServoModule::controlLoopEffort(){
     @param bool Reset : When true, it resets the held value for the I term. Only used when setting a new position
 */
 void ServoModule::controlLoopPosition(bool Reset){
-    this->currentPositionCentidegrees = this->currentPositionCentidegrees;
-    int8_t desiredPositionDegrees = currentPositionCentidegrees/100;
-    desiredPositionDegrees = desiredPositionDegrees - 45;
-    motor.write(desiredPositionDegrees); // set the target position
-}
-
-
-
-/*
-    The control loop that the state machine runs when in MODE_CALIBRATION
-    - Runs the motor to both limits at low effort for 5 seconds to determine max and min position
-*/
-void ServoModule::controlLoopCalibration(){
-    
-    const int8_t calEffort = 13; // Motor effort from -128 to 127 to drive at for calibration
-    static uint32_t startTime = millis(); // timer to run motor
-    static uint8_t state = 0; // State of the calibration
-    static uint16_t newPotentiometerMax = 4095; // variable to hold new potentiometer max
-    static uint16_t newPotentiometerMin = 0; // variable to hold new potentiometer min
-
-    // allow movement past current set limits by changing current set limits to max range
-    this->maxPotentiometerRange = 90;
-    this->minPotentiometerRange = -90;
-    
-
-    switch(0){
-        case 0: // Calibrate the max
-            this->setEffort(calEffort);
-            if(millis() - startTime >= 5000){
-                newPotentiometerMax = this->rawPotentiometerVal;
-                state++;
-                startTime = millis();
-            }
-        break;
-
-        case 1: // Calibrate the min
-            this->setEffort(-calEffort);
-            if(millis() - startTime >= 5000){
-                newPotentiometerMin = this->rawPotentiometerVal;
-                state++;
-                startTime = millis();
-            }
-        break;
-
-        // TODO: Find a way to confirm calibrated values are a good calibration
-        case 2: // Save the values to flash and exits calibration
-            //TODO: Save the calibration values to flash WITH AN OFFSET (Only allow -90 to 90 deg movement.)
-            // Probably use the map of pot->angle and desired max/min angles to map back angle->pot (will need another var for calibration angle)
-            this->maxPotentiometerRange = newPotentiometerMax;
-            this->minPotentiometerRange = newPotentiometerMin;
-            this->setMode(MODE_DISABLE);
-        break;
+    //get the target position in degrees
+    // offset the target position by 90 degrees to map the -90 to 90 input to the 0 to 180 actual
+    int8_t outsideLimit = isActuatorWithinLimits();
+    int16_t desiredPositionDegrees;
+    if(outsideLimit){
+        desiredPositionDegrees = (int16_t)this->desiredPositionCentidegrees/100;
+        desiredPositionDegrees = constrain(desiredPositionDegrees,this->minServoRange,this->maxServoRange);
+    }else{
+        desiredPositionDegrees = (int16_t)this->desiredPositionCentidegrees/100;
     }
+    desiredPositionDegrees = desiredPositionDegrees + 90;
+    motor.write(desiredPositionDegrees); // set the target position
+    
+    this->currentPositionCentidegrees = this->desiredPositionCentidegrees;
 }
 
 
@@ -192,6 +143,7 @@ void ServoModule::controlLoopCalibration(){
     Boots up the module, determines necessary constants, and initiates communications
 */
 void ServoModule::setup(Stream* in, Stream* out){
+    DEBUG_PRINT("Setting up Servo module with PWM pin: " + (String)(this->PWMPin));
     // Set initial mode (disabled)
         this->mode = MODE_DISABLE;
         this->dataBus = UARTBus(this, in, out);
@@ -204,45 +156,45 @@ void ServoModule::setup(Stream* in, Stream* out){
 #endif
 
         // Read values from flash and format into 16 bit unsigned integers
-        uint16_t minPotRange = read16BitFromEEPROM(0,1);
-        uint16_t maxPotRange = read16BitFromEEPROM(2,3);
+        uint16_t minMovePos = read16BitFromEEPROM(0,1);
+        uint16_t maxMovePos = read16BitFromEEPROM(2,3);
 
-        // Check that the minPotRange is reasonable, and update in EEPROM to default value if it is not reasonable
-        DEBUG_PRINT("minPotRange read from flash: ");
-        DEBUG_PRINT(minPotRange);
-        if(minPotRange > 90){// Check that value is reasonable (MUST be less than 180). If it is not, update to default
-            minPotRange = 0; // default is from 1/4 of rotation to 3/4 of rotation of potentiometer
-            DEBUG_PRINT("Updated minPotRange to: ");
-            DEBUG_PRINT(minPotRange);
+        // Check that the minMovePos is reasonable, and update in EEPROM to default value if it is not reasonable
+        DEBUG_PRINT("minMovePos read from flash: ");
+        DEBUG_PRINT(minMovePos);
+        if(minMovePos < -90){// Check that value is reasonable (MUST be less than 180). If it is not, update to default
+            minMovePos = -45; // default is from 1/4 of rotation to 3/4 of rotation of potentiometer
+            DEBUG_PRINT("Updated minMovePos to: ");
+            DEBUG_PRINT(minMovePos);
 
-            if(save16BitToEEPROM(minPotRange,0,1)){ // Save the default value to EEPROM
-                DEBUG_PRINT("minPotRange saved to EEPROM");
+            if(save16BitToEEPROM(minMovePos,0,1)){ // Save the default value to EEPROM
+                DEBUG_PRINT("minMovePos saved to EEPROM");
             }else{
-                DEBUG_PRINT("minPotRange FAILED to save to EEPROM");
+                DEBUG_PRINT("minMovePos FAILED to save to EEPROM");
             }
         }
-        this->minPotentiometerRange = minPotRange;
+        this->minServoRange = minMovePos;
 
-        DEBUG_PRINT("maxPotRange read from flash: ");
-        DEBUG_PRINT(maxPotRange);
-        if(maxPotRange >= 4095 or maxPotRange <= 2048){// If the value hasnt been saved yet, or was saved/read incorrect, or is well below a reasonable value, set it to default
-            maxPotRange = 3072; // default is from 1/4 of rotation to 3/4 of rotation
-            DEBUG_PRINT("Updated maxPotRange to: ");
-            DEBUG_PRINT(maxPotRange);
+        DEBUG_PRINT("maxMovePos read from flash: ");
+        DEBUG_PRINT(maxMovePos);
+        if(maxMovePos >= 90 or maxMovePos <= minMovePos){// If the value hasnt been saved yet, or was saved/read incorrect, or is well below a reasonable value, set it to default
+            maxMovePos = 135; // default is from 1/4 of rotation to 3/4 of rotation
+            DEBUG_PRINT("Updated maxMovePos to: ");
+            DEBUG_PRINT(maxMovePos);
 
-            if(save16BitToEEPROM(maxPotRange,2,3)){
-                DEBUG_PRINT("maxPotRange saved to EEPROM");
+            if(save16BitToEEPROM(maxMovePos,2,3)){
+                DEBUG_PRINT("maxMovePos saved to EEPROM");
             }else{
-                DEBUG_PRINT("maxPotRange FAILED to save to EEPROM");
+                DEBUG_PRINT("maxMovePos FAILED to save to EEPROM");
             }
         }
-        this->maxPotentiometerRange = maxPotRange;
+        this->maxServoRange = maxMovePos;
 
     // Determine and set the orientation flag
     // Confirm that you can digitalRead in the setup loop
         pinMode(this->mountingOrientationSwitchPin, INPUT_PULLUP);
         this->orientation = digitalRead(this->mountingOrientationSwitchPin);
-
+        this->dataBus.startComms();
 
     // Set the PWMPin to output
     // this->motor = TalonSR(this->PWMPin);
@@ -253,9 +205,9 @@ void ServoModule::setup(Stream* in, Stream* out){
 
 void ServoModule::loop() {
     // sense
-    this->updatePosVelAcc(); 
+    this->updatePosVelAcc();
     // process
-    Command command = this->dataBus.handleCommunication();
+    Command command = this->dataBus.getCurrentCommand();
     this->processCommand(command);
     // act
     this->stateMachine();
@@ -281,39 +233,6 @@ void ServoModule::setPosition(int16_t positionCentidegrees){
 int16_t ServoModule::getPosition(){
     return this->currentPositionCentidegrees;
 }
-
-
-/*
-    Sets the Position Kp, Ki, Kd values to the given values, returns the updated Kp, Ki, Kd. 
-    Any given value that is <0 will not change the current value
-    @param float Kp : The new Kp value (<0 doesnt change current Kp) 
-    @param float Ki : The new Ki value (<0 doesnt change current Ki)
-    @param float Kd : The new Kd value (<0 doesnt change current Kd) 
-*/
-void ServoModule::setPosKpKiKd(float Kp, float Ki, float Kd){
-    if(Kp >= 0){
-        this->posKp = Kp;
-    }
-    if(Ki >= 0){
-        this->posKi = Ki;
-    }
-    if(Kd >= 0){
-        this->posKd = Kd;
-    }
-}
-
-
-/*
-    Getter for Position Kp, Ki, Kd
-    @param float*  : A 3x1 Array to store the current Kp, Ki, Kd values 
-*/
-void ServoModule::getPosKpKiKd(float* retVal){
-    retVal[0] = this->posKp;
-    retVal[1] = this->posKi;
-    retVal[2] = this->posKd;
-}
-
-
 
 /*
     Sets the effort of the joint -128 to 127. Limit movement to stay within range
@@ -375,8 +294,6 @@ bool ServoModule::getArmOrientation(){
 void ServoModule::setMode(MODE mode){
     // Set the desired position to the current position
     this->desiredPositionCentidegrees = this->currentPositionCentidegrees;
-    // Set the motor Effort to 0
-    this->motor.write(0);
     //set the mode to the new mode
     this->mode = mode;
 } 
@@ -388,15 +305,7 @@ void ServoModule::setMode(MODE mode){
 void ServoModule::updatePosVelAcc(){
     // If the control loop time has passed,
     if(millis() - this->lastTimeCalculated > this->controlLoop_ms){
-        // Read the raw potentiometer value
-        this->rawPotentiometerVal = analogRead(this->potentiometerPin);
-
-        // Save the last measured value into the lastPositionCentidegrees attribute
-        this->lastPositionCentidegrees = this->currentPositionCentidegrees;
-
-        // Map the raw potentiometer value to the angle of the joint using calibration data and min/max angles (angles of calibration)
-        this->currentPositionCentidegrees =  map(this->rawPotentiometerVal,this->minPotentiometerRange,this->maxPotentiometerRange,this->minAngle * 100, this->maxAngle * 100);
-        
+    
         // save the old velocity to the lastVelocityCentidegrees attribute
         this ->lastVelocityCentidegrees = this->currentVelocityCentidegrees;
 
@@ -408,9 +317,6 @@ void ServoModule::updatePosVelAcc(){
 
         // Update the last time so this will update in another controlLoop_ms
         this->lastTimeCalculated = millis();
-
-        // Set flag that values have updated, so PID can update.
-        this->readyToUpdatePID = true;
     }
 }
 
@@ -422,14 +328,6 @@ void ServoModule::updatePosVelAcc(){
 uint8_t ServoModule::getMode(){
     return this->mode;
 }
-
-
-/*
-    Calibrates the module by moving the joint to either end until the joint can no longer move at a low motor effort. DO NOT USE if module is attached to other modules
-*/
-void ServoModule::calibrate(){
-    this->setMode(MODE_CALIBRATION); 
-} 
 
 
 /*
@@ -447,9 +345,10 @@ void ServoModule::disable(){
     @return int8_t : the directions the actuator is allowed to move
 */
 int8_t ServoModule::isActuatorWithinLimits(){
-    if(this->rawPotentiometerVal >= this->maxPotentiometerRange){
+    int16_t targetPositionDegrees = (int16_t)this->desiredPositionCentidegrees/100;
+    if(targetPositionDegrees >= this->maxServoRange){
         return -1;
-    }else if(this->rawPotentiometerVal <= this->minPotentiometerRange){
+    }else if(targetPositionDegrees <= this->minServoRange){
         return 1;
     }else{
         return 0;

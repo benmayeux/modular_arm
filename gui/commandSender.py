@@ -42,7 +42,9 @@ def main():
 
         command = input("Enter a command: ") # Taking input from user
         cs.write(command)
-        value = cs.read()
+        time.sleep(1)
+        value = cs.arduino.read_all()
+
         print(str(value, 'utf-8')) # printing the value
 
         if(command == "end"):

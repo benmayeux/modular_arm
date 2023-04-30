@@ -10,9 +10,9 @@ namespace base {
       serialInterface = SerialInterface();
       serialInterface.begin(115200);
       delay(300);
-      Serial2.begin(115200);
+      DEBUG_PRINT("SETUP");
       bus = UARTBus(0, &Serial2, &Serial2);
-      fetchConfiguration();
+      //fetchConfiguration();
   }
 
   bool Base::fetchConfiguration(int timeout) {
@@ -52,24 +52,23 @@ namespace base {
   }
 
 
-  Command Base::sendCarouselCommand(CommandType commandType, int16_t* dataIn, int16_t* dataOut, int nDataOut, int length) {
-    DEBUG_PRINT("sending carousel: " + (String)commandType + ": " + (String)length);
+  Command Base::sendCarouselCommand(CommandType commandType, int16_t* dataIn, int nDataIn, int16_t* dataOut, int nDataOut) {
+    DEBUG_PRINT("sending carousel: " + (String)commandType + ": " + (String)nJoints);
     Command command = Command();
     command.command = (CommandType)(commandType | CommandType::CAROUSEL);
-    if (length != nJoints) {
-      DEBUG_PRINT("ERROR: size of carousel data does not match number of joints!");
-      return command;
-    }
+
     command.data[0] = nJoints;
-    bus.sendCommand(command);
-    for (int i = 0; i < length; i++) {
-      bus.sendData(dataIn[i]);
-    }
+    bus.sendCommand(command, true);
+
+    bus.sendData<int16_t>(dataIn, nJoints * nDataIn);
+    
     command = bus.receiveCommand();
     DEBUG_PRINT(command.command);
-    for (int i = 0; i < length*nDataOut; i++) {
-      dataOut[i] = bus.receiveData<int16_t>();
-    }
+    DEBUG_PRINT("Reading " + (String)(nJoints*nDataOut) +" words");
+
+    bus.receiveData<int16_t>(dataOut, nJoints * nDataOut);
+    
+    DEBUG_PRINT("Done");
     return command;
   }
 
@@ -96,7 +95,11 @@ namespace base {
   }
 
   Command Base::sendCarouselPosition(int16_t* data, int length, int16_t* dataOut) {
-    return sendCarouselCommand((CommandType)(CommandType::POSITION_WRITE_CAROUSEL | CommandType::RETURN_POSITION | CommandType::RETURN_EFFORT | CommandType::RETURN_VELOCITY), data, dataOut, 3, length);
+    return sendCarouselCommand((CommandType)(CommandType::POSITION_WRITE_CAROUSEL | 
+                                             CommandType::RETURN_POSITION | 
+                                             CommandType::RETURN_EFFORT | 
+                                             CommandType::RETURN_VELOCITY), 
+                                             data, 1, dataOut, 3);
   }
 
   // TODO: actual IK
@@ -127,9 +130,43 @@ namespace base {
         }
         Serial.println();
         break;
+      case SerialInputCommandType::SET_ALL_POSITION:
+        n = calculateIK(dataBuffer, command.data[0],command.data[1],command.data[2]);
+        for (int i = 0; i < n; i++) {
+          dataBuffer[i] = command.data[i];
+        }
+        c = sendCarouselPosition(dataBuffer, n, dataBuffer);
+        Serial.println((String)n + ",JOINT,POS,EFF,VEL");
+        for (int i = 0; i < n; i++) {
+          Serial.print((String)(i + 1) + ",");
+          for (int j = 0; j < c.getNReturn(); j++) {
+            Serial.print((String)dataBuffer[c.getNReturn()*i + j] + ",");
+          }
+          Serial.println();
+        }
+        break;
       case SerialInputCommandType::SET_TASK_POSITION:
         n = calculateIK(dataBuffer, command.data[0],command.data[1],command.data[2]);
         c = sendCarouselPosition(dataBuffer, n, dataBuffer);
+        Serial.println((String)n + ",JOINT,POS,EFF,VEL");
+        for (int i = 0; i < n; i++) {
+          Serial.print((String)(i + 1) + ",");
+          for (int j = 0; j < c.getNReturn(); j++) {
+            Serial.print((String)dataBuffer[c.getNReturn()*i + j] + ",");
+          }
+          Serial.println();
+        }
+        break;
+      case SerialInputCommandType::POLL:
+        n = nJoints;
+        DEBUG_PRINT("Sending poll");
+        c = sendCarouselCommand((CommandType)(CommandType::NOOP | 
+                                          CommandType::CAROUSEL | 
+                                          CommandType::RETURN_POSITION | 
+                                          CommandType::RETURN_EFFORT | 
+                                          CommandType::RETURN_VELOCITY), 
+                                        nullptr, 0, dataBuffer, 3);
+        DEBUG_PRINT("Sent...");
         Serial.println((String)n + ",JOINT,POS,EFF,VEL");
         for (int i = 0; i < n; i++) {
           Serial.print((String)i + ",");
@@ -139,6 +176,7 @@ namespace base {
           Serial.println();
         }
         break;
+
       case SerialInputCommandType::INVALID:
         DEBUG_PRINT("Invalid command!");
         break;
@@ -156,7 +194,7 @@ namespace base {
     if (command.commandType != SerialInputCommandType::NONE) {
       executeCommand(command);
     }
-    delay(100);
+    delay(1);
   }
 };
 

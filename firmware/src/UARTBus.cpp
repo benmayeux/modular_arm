@@ -10,6 +10,7 @@
     int UARTBus::available() {
       return serialPort->available();
     }
+
     /**
      * @brief Construct a new UARTBus object
      *
@@ -18,26 +19,31 @@
     UARTBus::UARTBus(UARTBusDataDelegate* delegateIn, Stream* in, Stream* out) {
       delegate = delegateIn;
       serialPort = (HardwareSerial*)(new SerialAdapter(in, out));
-      serialPort->begin(115200);
+      DEBUG_PRINT("STARTING");
     }
 
     UARTBus::UARTBus() {
       UARTBus(0, nullptr, nullptr);
     }
 
-   
-  
+    void UARTBus::startComms() {
+      xTaskCreatePinnedToCore(handleCommunicationTask, "uart", 10000, this, 10, NULL, 0);
+    }
 
     /**
      * @brief Sends a command on the bus
      *
      * @param c
      */
-    void UARTBus::sendCommand(Command c) {
-      sendData(c);
+    void UARTBus::sendCommand(Command c, bool clearBuffer) {
+      if(clearBuffer) {
+        while(this->serialPort->available()) {
+          this->serialPort->read();
+        }
+      }
+      DEBUG_PRINT("send command");
+      sendData<Command>(c);
     }
-
-   
 
     /**
      * @brief Consumes a raw command from the bus
@@ -57,57 +63,105 @@
       return receiveData<Configuration>();
     }
 
+    void UARTBus::updateCommand(Command c) {
+        Command readCommand = Command(c);
+        xQueueSend(commandQueue, &readCommand, 1000);
+    }
+
+    Command UARTBus::getCurrentCommand() {
+      Command c;
+      c.command = NOOP;
+      if(uxQueueMessagesWaiting(commandQueue)) {
+        xQueueReceive(commandQueue,&c,0);
+      }
+      return c;
+    }
+
+    void UARTBus::handleCommunicationTask(void* params) {
+
+      UARTBus* This = (UARTBus*) params;
+
+      DEBUG_PRINT("Starting on core: " + (String)xPortGetCoreID());
+      for(;;) {
+        vTaskDelay(1);
+        Command currentCommand = Command();
+        currentCommand.command = CommandType::NOOP;
+        while(This->serialPort->available()) {
+            currentCommand = This->receiveCommand();
+
+            if(!currentCommand.isValid()) {
+              DEBUG_PRINT("NOT VALID");
+              while(This->serialPort->available()) {
+                This->serialPort->read();
+              }
+              continue;
+            }
+
+
+            // Configure Bus
+            if (currentCommand.command == CommandType::CONFIGURE) {
+              DEBUG_PRINT((String) This->address + ": Starting configure...");
+              This->address = currentCommand.address++;
+              This->sendCommand(currentCommand);
+              DEBUG_PRINT("Finsih command");
+              Configuration c = This->delegate->getConfiguration();
+              DEBUG_PRINT("finish config");
+              This->forwardAndAppend(c, This->address);
+              DEBUG_PRINT("Finish forward and append");
+              currentCommand.command = CommandType::NOOP;
+              This->updateCommand(currentCommand);
+
+              DEBUG_PRINT((String) This->address + ": Done configuring");
+              continue;
+            }
+
+            // For this joint
+            if (currentCommand.address == This->address) {
+              currentCommand = currentCommand;
+              Command forwarded = Command(currentCommand);
+              This->delegate->fetchData(currentCommand.command, forwarded.data);
+              This->sendCommand(forwarded);
+              This->updateCommand(currentCommand);
+              continue;
+            }
+
+            if (currentCommand.command & CAROUSEL) {
+              int nJoints = (int)currentCommand.data[0];
+              // Forward original command
+              This->sendCommand(currentCommand);
+              int16_t* dataBuffer = new int16_t[currentCommand.getNReturn()];
+              byte nDataOut = This->delegate->fetchData(currentCommand.command, dataBuffer);
+              if ((CommandType)(currentCommand.command & COMMANDTYPE_MASK) == NOOP) {
+                DEBUG_PRINT("polling");
+                This->leftShiftBus(nJoints, nullptr, 0, dataBuffer, nDataOut);
+              } else {
+                DEBUG_PRINT("avail: " + (String) This->serialPort->available());
+                This->leftShiftBus(nJoints, currentCommand.data, 1, dataBuffer, nDataOut);
+                This->updateCommand(currentCommand);
+              }
+              delete[] dataBuffer;
+
+              // Forward data
+          
+              continue;
+            }
+          
+            This->sendCommand(currentCommand);
+            //currentCommand.command = CommandType::NOOP;
+            //This->updateCommand(currentCommand);
+        }
+      }
+    }
+
+
     /**
      * @brief Handles forwarding and data fetching. Returns any new commands to be processed
      *
      * @return Command
      */
     Command UARTBus::handleCommunication() {
-      Command currentCommand = Command();
-      currentCommand.command = CommandType::NOOP;
-      while(serialPort->available()) {
-          currentCommand = receiveCommand();
-
-          // Configure Bus
-          if (currentCommand.command == CommandType::CONFIGURE) {
-            DEBUG_PRINT((String) address + ": Starting configure...");
-            address = currentCommand.address++;
-            sendCommand(currentCommand);
-            Configuration c = delegate->getConfiguration();
-            forwardAndAppend(c, address);
-            currentCommand.command = CommandType::NOOP;
-            DEBUG_PRINT((String) address + ": Done!");
-            return currentCommand;
-          }
-
-          // For this joint
-          if (currentCommand.address == address) {
-            currentCommand = currentCommand;
-            Command forwarded = Command(currentCommand);
-            delegate->fetchData(currentCommand.command, forwarded.data);
-            sendCommand(forwarded);
-            return currentCommand;
-          }
-
-          if (currentCommand.command & CAROUSEL) {
-            int nJoints = (int)currentCommand.data[0];
-            // Forward original command
-            sendCommand(currentCommand);
-            int16_t* dataBuffer = new int16_t[currentCommand.getNReturn()];
-            byte nDataOut = delegate->fetchData(currentCommand.command, dataBuffer);
-            leftShiftBus(nJoints, currentCommand.data, 1, dataBuffer, nDataOut);
-            delete[] dataBuffer;
-
-            // Forward data
-            return currentCommand;
-          }
-
-          // Forward
-          sendCommand(currentCommand);
-          currentCommand.command = CommandType::NOOP;
-          return currentCommand;
-        }
-        return currentCommand;
+      handleCommunicationTask(this);
+      return getCurrentCommand();
     }
 
 
