@@ -1,0 +1,27 @@
+# Serial Interface Commands
+
+## reconfigure;
+returns `Num Modules: x`
+int x Number of joints
+
+## setTaskPos,x,y,z;
+`unimplemented. sends dummy positions at this point`
+int x in meters
+int y in meters
+int z in meters
+
+
+
+## setJointPos,x
+int x in centidegrees
+
+
+
+## setAllPos,j1,j2,j3,j4...
+int j is position in centidegrees
+
+## poll;
+returns `Joint: p,v,e`
+int p position in centidegrees
+int v velocity in centidegrees/s
+int e effort
