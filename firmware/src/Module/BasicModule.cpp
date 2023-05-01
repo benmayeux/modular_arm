@@ -173,13 +173,20 @@ void BasicModule::controlLoopPosition(bool Reset){
 
 
 // Calculates trajectory, saves values to A array, start and end time, and sets the mode to follow traj
-void BasicModule::startCubicTraj(int16_t desiredPosCentidegrees){
-    this->trajDesiredPosCentidegrees = desiredPosCentidegrees;
-    int16_t deltaCentidegrees = abs(desiredPosCentidegrees - this->getPosition());
-    float T = deltaCentidegrees/centiDegreesPerSecond;
+void BasicModule::startCubicTraj(int16_t desPosCentidegrees){
+    this->trajDesiredPosCentidegrees = desPosCentidegrees;
+    int16_t deltaCentidegrees = abs(this->trajDesiredPosCentidegrees - this->getPosition());
+    
+    // If robot is within 5 deg, just PID there
+    if(deltaCentidegrees <=  500){
+        this->desiredPositionCentidegrees = this->trajDesiredPosCentidegrees;
+        this->setMode(MODE_POSITION);
+    }
+
+    float T = (float)deltaCentidegrees/(float)centiDegreesPerSecond;
     this->trajStartTime = millis();
     this->trajEndTime = trajStartTime + T*1000;
-    cubicTraj(0, (this->trajEndTime - this->trajStartTime)/1000, this->getPosition(), desiredPosCentidegrees, 0, 0, this->A);
+    this->cubicTraj(0, (float)(this->trajEndTime - this->trajStartTime)/1000.0, this->getPosition(), this->trajDesiredPosCentidegrees, 0, 0, this->A);
     this->setMode(MODE_FOLLOWING_CUBIC_TRAJ);
 }
 
@@ -189,7 +196,7 @@ void BasicModule::controlLoopCubicTraj(){
 
     // At end of traj
     if(curTime >= this->trajEndTime){
-        setMode(MODE_POSITION);
+        this->setMode(MODE_POSITION);
     }
 
     float desiredPosVelAcc[3];
