@@ -198,7 +198,7 @@ def update_serial_data():  # called in main loop
                                     currentT.pop(0)
                                     currentY.pop(0)
                                 currentT.append(round(time.time()*1000) - start_time)
-                                currentY.append(float(line[j].strip())/100*0.0174532925)
+                                currentY.append(float(line[j].strip())/100)
                             if j == 2:  # should be torque data in serial
                                 currentT = plot_t[dataCategories * jointNum + torque_location]
                                 currentY = plot_datay[dataCategories * jointNum + torque_location]
@@ -270,17 +270,17 @@ def sendSerialInput(sender, app_data, user_data):  # function for obtaining data
             makeRobot(qs)
 
     elif commandName == "setJointPos":
-        if relatedValue > 1.57:
+        if abs(relatedValue) > 90:
             warningBox("Warning: Joint Limit Exceeded", "You have exceeded the joint limit, try a new value")
             return
 
-        x = commandName + "," + str(user_data[2]+1) + "," + str(relatedValue/0.017453*100)
+        x = commandName + "," + str(user_data[2]+1) + "," + str(relatedValue*100)
 
         if modelType != "cus":
             # update matplot for robot sim
             currentQ = robot.q
             # print("Old Q: " + str(currentQ))
-            currentQ[user_data[2]] = relatedValue
+            currentQ[user_data[2]] = relatedValue*math.pi/180
             # print("New Q: " + str(currentQ))
             makeRobot(currentQ)
 
@@ -290,12 +290,12 @@ def sendSerialInput(sender, app_data, user_data):  # function for obtaining data
         x = commandName + ","
         qs = []
         for tag in tags:
-            tagValue = dpg.get_value(tag)/0.017453*100
+            tagValue = dpg.get_value(tag)*100
             if tag == tags[-1]:
                 x = x + str(tagValue) + ";"
             else:
                 x = x + str(tagValue) + ","
-            qs.append(tagValue)
+            qs.append(tagValue/100*math.pi/180)
         makeRobot(qs)
 
     else:
@@ -353,15 +353,15 @@ def addMenubar():  # makes the menu bar, such that it's consistent across window
 
 def addJointControlInput(config_name, n_modules):  # makes the joint control input, such that it's consistent
     with dpg.collapsing_header(label="Joint Control", default_open=True):
-        dpg.add_text("Joint inputs are in radians")
+        dpg.add_text("Joint inputs are in degrees")
         tags = []
         with dpg.group(width=300):
             for i in range(n_modules):
                 with dpg.group(horizontal=True, tag="joint" + str(i) + config_name + "Group"):
                     dpg.add_input_float(label="Joint " + str(i), tag="joint" + str(i) + config_name,
-                                        default_value=0, step=0.174533, user_data=["joint" + str(i) + config_name + "slider"], callback=updateButton)
+                                        default_value=0, step=10, user_data=["joint" + str(i) + config_name + "slider"], callback=updateButton)
                     dpg.add_slider_float(tag="joint" + str(i) + config_name + "slider", user_data=["joint" + str(i) + config_name],
-                        min_value=-math.pi/2, max_value=math.pi/2, default_value=0.0, callback=updateButton, width=300)
+                        min_value=-90, max_value=90, default_value=0.0, callback=updateButton, width=300)
                     dpg.add_button(label="Set", callback=sendSerialInput,
                                    user_data=["joint" + str(i) + config_name, "setJointPos", i])
                     # user data = [tag of corresponding input_float, Serial command name, joint number]
@@ -414,7 +414,7 @@ def addPlotSection(configName):  # makes a plot section, such that it's consiste
             with dpg.group(horizontal=True):
                 for j in range(numberOfPlotsPerRow):
                     if moduleNumber <= newNumModules - 1:
-                        addPlot(configName + " Position Joint" + str(moduleNumber), "Time", "Position (rad)",
+                        addPlot(configName + " Position Joint" + str(moduleNumber), "Time", "Position (deg)",
                                 plot_t[dataCategories * moduleNumber + position_location],
                                 plot_datay[dataCategories * moduleNumber + position_location])
                     moduleNumber += 1
@@ -484,7 +484,7 @@ def initialize_custom():  # initialze important variables for custom window
 
     with dpg.collapsing_header(label="Joint Control", default_open=True, tag="cus_joints", parent="cus_window"):
         dpg.add_text("Press Scan Parts", tag="cus_all")
-        dpg.add_text("Joint inputs are in radians")
+        dpg.add_text("Joint inputs are in degrees")
 
     with dpg.collapsing_header(label="Data Collection", tag="cus_plots", parent="cus_window"):
         dpg.add_text("Live Data from Robot")
@@ -513,10 +513,10 @@ def update_custom():  # callback for updating custom window buttons based on the
     tags = []
     for i in range(int(newNumModules)):  # add joint input buttons
         with dpg.group(horizontal=True, width=300, parent="cus_joints", tag="cus_group" + str(i)):
-            dpg.add_input_float(label="Joint " + str(i), tag="cus_joint" + str(i), default_value=0, step=0.174533, user_data=["joint" + str(i) + "cus_" + "slider"], callback=updateButton)
+            dpg.add_input_float(label="Joint " + str(i), tag="cus_joint" + str(i), default_value=0, step=10, user_data=["joint" + str(i) + "cus_" + "slider"], callback=updateButton)
             dpg.add_slider_float(tag="joint" + str(i) + "cus_" + "slider",
                                  user_data=["cus_joint" + str(i)],
-                                 min_value=-math.pi / 2, max_value=math.pi / 2, default_value=0.0,
+                                 min_value=-90, max_value=90, default_value=0.0,
                                  callback=updateButton, width=300)
             dpg.add_button(label="Set", callback=sendSerialInput, user_data=["cus_joint" + str(i), "setJointPos", i],
                            tag="cus_set" + str(i))
