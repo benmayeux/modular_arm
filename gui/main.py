@@ -43,8 +43,12 @@ supportedModels = {"RRR": [3, rtb.DHRobot([
             rtb.RevoluteDH(d=baseVOffset, a=baseHOffset, alpha=-math.pi / 2),
             rtb.RevoluteDH(a=lengthOfRLinks),
             rtb.RevoluteDH(a=lengthOfRLinks)
+            # rtb.RevoluteMDH(d=baseVOffset, a=baseHOffset),
+            # rtb.RevoluteMDH(alpha=-math.pi / 2),
+            # rtb.RevoluteMDH(a=lengthOfRLinks),
+            # rtb.RevoluteMDH(a=lengthOfRLinks)
         ], name="RRR"), False],
-                    "SPR": [6, rtb.DHRobot([
+                    "RRR+Spherical": [6, rtb.DHRobot([
             rtb.RevoluteDH(d=baseVOffset, a=baseHOffset, alpha=-math.pi / 2),
             rtb.RevoluteDH(a=lengthOfRLinks),
             rtb.RevoluteDH(a=lengthOfRLinks),
@@ -234,11 +238,30 @@ def sendSerialInput(sender, app_data, user_data):  # function for obtaining data
 
         if modelType != "cus":
             T = SE3.Trans(relatedValue[0], relatedValue[2], relatedValue[1]) * SE3.Rx(math.pi/2)
-            sol = robot.ik_nr(T, we=[1, 1, 1, 0, 0, 0])
+            # sol = robot.ik_nr(T, we=[1, 1, 1, 0, 0, 0])
+            Loading("IK Solving...", "Trying to do IK numerically, give me a bit :)")
+            try:
+                sol = robot.ikine_LM(T, search=True)
+            except:
+                print("SHITTTTTtttt")
+                qs = np.zeros(newNumModules)
+                qs[0] = math.pi
+                sol = robot.ikine_LM(T, search=True, q0=qs)
+            if not sol[1]:
+                print("No forward solution")
+                try:
+                    qs = np.zeros(newNumModules)
+                    qs[0] = math.pi
+                    sol = robot.ikine_LM(T, search=True, q0=qs)
+                except:
+                    print("GGGGGGGGGGGGGG")
+            dpg.delete_item("loading_window")
+            time.sleep(0.01)
             # print(sol[1])
             if not sol[1]:  # no solution
                 print("No Solution!")
                 warningBox("No IK Solution", "It seems the task space input has no valid solution. Try a different one.")
+                return
                 # return
             qs = sol[0]
             print(sol)
@@ -288,6 +311,22 @@ def warningBox(title, message):  # makes a warning box popup
     height = dpg.get_item_height(modal_id)
     dpg.set_item_pos(modal_id, [viewport_width // 2 - width // 2, viewport_height // 2 - height // 2])
 
+def Loading(title, message):  # makes a loading popup
+    # guarantee these commands happen in the same frame
+    with dpg.mutex():
+        viewport_width = dpg.get_viewport_client_width()
+        viewport_height = dpg.get_viewport_client_height()
+
+        with dpg.window(label=title, modal=True, no_close=True, tag="loading_window") as modal_id:
+            dpg.add_text(message)
+            dpg.add_loading_indicator(label="Solving IK", style=0, tag="LIndicator")
+
+    # guarantee these commands happen in another frame
+    dpg.split_frame()
+    width = dpg.get_item_width(modal_id)
+    height = dpg.get_item_height(modal_id)
+    dpg.set_item_pos(modal_id, [viewport_width // 2 - width // 2, viewport_height // 2 - height // 2])
+    dpg.set_item_pos("LIndicator", [width//2, height//2])
 
 def addMenubar():  # makes the menu bar, such that it's consistent across windows
     with dpg.menu_bar():
@@ -300,6 +339,7 @@ def addMenubar():  # makes the menu bar, such that it's consistent across window
 
 def addJointControlInput(config_name, n_modules):  # makes the joint control input, such that it's consistent
     with dpg.collapsing_header(label="Joint Control", default_open=True):
+        dpg.add_text("Joint inputs are in radians")
         with dpg.group(width=160):
             for i in range(n_modules):
                 with dpg.group(horizontal=True, tag="joint" + str(i) + config_name + "Group"):
@@ -312,7 +352,7 @@ def addJointControlInput(config_name, n_modules):  # makes the joint control inp
 
 def addTaskSpaceInput(config_name, xmax, xmin, ymax, ymin, zmax, zmin):  # makes taskspace input, such that it's consistent
     with dpg.collapsing_header(label="Task Space Control"):
-        dpg.add_3d_slider(label="Workspace (mm)", tag="task" + config_name, scale=0.3, callback=update_slider_inputs,
+        dpg.add_3d_slider(label="Workspace (m)", tag="task" + config_name, scale=0.3, callback=update_slider_inputs,
                           user_data=[config_name + "x", config_name + "y", config_name + "z"],
                           max_x=xmax, min_x=xmin, max_z=ymax, min_z=ymin, max_y=zmax, min_y=zmin)
         with dpg.group(horizontal=True):
@@ -425,6 +465,7 @@ def initialize_custom():  # initialze important variables for custom window
 
     with dpg.collapsing_header(label="Joint Control", default_open=True, tag="cus_joints", parent="cus_window"):
         dpg.add_text("Press Scan Parts", tag="starting_cus")
+        dpg.add_text("Joint inputs are in radians")
 
     with dpg.collapsing_header(label="Data Collection", tag="cus_plots", parent="cus_window"):
         dpg.add_text("Live Data from Robot")
@@ -526,7 +567,7 @@ cus_width, cus_height, cus_channels, cus_data = dpg.load_image("custom.png")
 with dpg.texture_registry(show=False):
     # menu images
     dpg.add_static_texture(width=RRR_width, height=RRR_height, default_value=RRR_data, tag="RRR_image")
-    dpg.add_static_texture(width=SPR_width, height=SPR_height, default_value=SPR_data, tag="SPR_image")
+    dpg.add_static_texture(width=SPR_width, height=SPR_height, default_value=SPR_data, tag="RRR+Spherical_image")
     dpg.add_static_texture(width=cus_width, height=cus_height, default_value=cus_data, tag="cus_image")
 
     # matplot simulation
