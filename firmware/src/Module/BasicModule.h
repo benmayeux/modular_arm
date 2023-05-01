@@ -44,7 +44,7 @@ class BasicModule: public UARTBusDataDelegate {
         static uint16_t read16BitFromEEPROM(uint8_t mem1, uint8_t mem2);
 
         // MODEs of the module
-        enum MODE {MODE_DISABLE, MODE_EFFORT, MODE_POSITION, MODE_VELOCITY, MODE_CALIBRATION};
+        enum MODE {MODE_DISABLE, MODE_EFFORT, MODE_POSITION, MODE_VELOCITY, MODE_CALIBRATION, MODE_FOLLOWING_CUBIC_TRAJ};
         uint8_t getMode(); 
         void calibrate(); 
         void disable(); 
@@ -60,6 +60,8 @@ class BasicModule: public UARTBusDataDelegate {
         // The motor controller
         TalonSR motor;
 
+        void startCubicTraj(int16_t desiredPosCentidegrees);
+
     private:
         // Private Methods:--------------------------------------------------------------------
         void setEffortPrivate(int16_t effort);
@@ -68,9 +70,7 @@ class BasicModule: public UARTBusDataDelegate {
         void controlLoopPosition(bool Reset = false);
         void controlLoopVelocity();
         void controlLoopCalibration();
-        
-
-
+        void controlLoopCubicTraj();
 
 
         // General data:------------------------------------------------------------------------
@@ -172,6 +172,71 @@ class BasicModule: public UARTBusDataDelegate {
         uint32_t lastTimeCalculated = millis();
 
         Configuration configuration;
+
+
+
+        /*---------------------------------------------------------------- HERE DOWN WAS ADDED TO ALLOW FOR CUBIC TRAJECTORIES (and some stuff above)
+        */
+
+        // SPEED/VELOCITY of the joint
+        uint32_t centiDegreesPerSecond = 2000;
+
+        /* 
+        Takes a relative time value, and plugs in T to the equation where A represents the coefficents: q(t) = a0 + a1*t + a2*t^2 + a3*t^3
+        @param uint32_t  t      : The time value in milliseconds
+        @param float*    A      : The A matrix of coeffients of the equation above
+        @param float*    desired: The output, desired position, velocity and acceleration at that time [q;qdot;qdotdot] in DEG and Seconds
+        */
+        void calcTrajPos(uint32_t t, float* A, float* desired){
+            double tsec = t/1000.0;
+            // float Ad[4]; //A dot (velocity)
+            // float Add[4]; // A dot dot (acceleration)
+            // this->cubicDeriv(A, Ad);
+            // this->cubicDeriv(Ad, Add);
+            
+            desired[0] = (A[0]*1 + A[1]*tsec + A[2]*tsec*tsec + A[3]*tsec*tsec*tsec)/100.0;
+            // desired[1] = (Ad[0]*1 + Ad[1]*tsec + Ad[2]*tsec*tsec + Ad[3]*tsec*tsec*tsec)/100.0;
+            // desired[2] = (Add[0]*1 + Add[1]*tsec + Add[2]*tsec*tsec + Add[3]*tsec*tsec*tsec)/100.0;
+        }
+
+
+        /*
+            Plan a cubic trajectory from a given position to another position
+            @param float  t0     : Starting time of traj (0)
+            @param float  tf     : Ending time of traj
+            @param float  q0     : starting joint position
+            @param float  qf     : ending joint position
+            @param float  q0d    : starting joint velocity
+            @param float  q0f    : ending joint velocity
+            @param float* A      : Output A array that fulfills the equation: q(t) = a0 + a1*t + a2*t^2 + a3*t^3
+        */
+        void cubicTraj(float t0, float tf, float q0, float qf, float q0d, float qfd, float* A){
+            A[0] = -(q0*tf*tf*tf - qf*t0*t0*t0 - 3*q0*t0*tf*tf - q0d*t0*tf*tf*tf + 3*qf*t0*t0*tf + qfd*t0*t0*t0*tf + q0d*t0*t0*tf*tf - qfd*t0*t0*tf*tf)/((t0 - tf)*(t0*t0 - 2*t0*tf + tf*tf));
+            A[1] = -(q0d*tf*tf*tf - qfd*t0*t0*t0 + q0d*t0*tf*tf - 2*q0d*t0*t0*tf + 2*qfd*t0*tf*tf - qfd*t0*t0*tf + 6*q0*t0*tf - 6*qf*t0*tf)/((t0 - tf)*(t0*t0 - 2*t0*tf + tf*tf));
+            A[2] = (3*q0*t0 + 3*q0*tf - 3*qf*t0 - 3*qf*tf - q0d*t0*t0 + 2*q0d*tf*tf - 2*qfd*t0*t0 + qfd*tf*tf - q0d*t0*tf + qfd*t0*tf)/((t0 - tf)*(t0*t0 - 2*t0*tf + tf*tf));
+            A[3] = -(2*q0 - 2*qf - q0d*t0 + q0d*tf - qfd*t0 + qfd*tf)/((t0 - tf)*(t0*t0 - 2*t0*tf + tf*tf));
+
+        }
+
+        /*
+            Take an A matrix representing the coefficients of a (maximum of cubic) trajectory, and find the derivatives coefficients
+            @param float* A     : An array of 4 values representing the coefficients of a trajectory: q(t) = a0 + a1*t + a2*t^2 + a3*t^3
+            @param float* Ad    : An output array of 4 values representing the coefficients of derivative of the A trajectory.
+        */
+        void cubicDeriv(float* A, float* Ad){
+            Ad[0] = A[1];
+            Ad[1] = A[2]*2;
+            Ad[2] = A[3]*3;
+            Ad[3] = 0;
+        }
+
+        // Place to store the trajectory values
+        float A[4] = {0,0,0,0};
+
+        uint32_t trajStartTime = 0;
+        uint32_t trajEndTime = 0;
+        int16_t trajDesiredPosCentidegrees = 0;
+
 };
 
 

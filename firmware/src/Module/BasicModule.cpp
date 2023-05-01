@@ -101,6 +101,9 @@ void BasicModule::stateMachine(){
             this->controlLoopPosition();
         break;
 
+        case MODE_FOLLOWING_CUBIC_TRAJ:
+            this->controlLoopCubicTraj();
+        break;
         case MODE_VELOCITY:
             // NOT IMPLEMENTED
         break;
@@ -168,6 +171,35 @@ void BasicModule::controlLoopPosition(bool Reset){
     
 }
 
+
+// Calculates trajectory, saves values to A array, start and end time, and sets the mode to follow traj
+void BasicModule::startCubicTraj(int16_t desiredPosCentidegrees){
+    this->trajDesiredPosCentidegrees = desiredPosCentidegrees;
+    int16_t deltaCentidegrees = abs(desiredPosCentidegrees - this->getPosition());
+    float T = deltaCentidegrees/centiDegreesPerSecond;
+    this->trajStartTime = millis();
+    this->trajEndTime = trajStartTime + T*1000;
+    cubicTraj(0, (this->trajEndTime - this->trajStartTime)/1000, this->getPosition(), desiredPosCentidegrees, 0, 0, this->A);
+    this->setMode(MODE_FOLLOWING_CUBIC_TRAJ);
+}
+
+// Runs to calculate and drive motors along the cubic traj that was planned
+void BasicModule::controlLoopCubicTraj(){
+    uint32_t curTime = millis();
+
+    // At end of traj
+    if(curTime >= this->trajEndTime){
+        setMode(MODE_POSITION);
+    }
+
+    float desiredPosVelAcc[3];
+
+    this->calcTrajPos(curTime - this->trajStartTime, this->A, desiredPosVelAcc);
+
+    this->desiredPositionCentidegrees = desiredPosVelAcc[0]*100;
+
+    this->controlLoopPosition();
+}
 
 
 /*
@@ -311,9 +343,9 @@ void BasicModule::setPosition(int16_t positionCentidegrees){
     // Reset the I term of the control loop
         this->controlLoopPosition(true);
     // set mode to position mode
-        this->setMode(MODE_POSITION);
+        this->setMode(MODE_FOLLOWING_CUBIC_TRAJ);
     // Set Desired Position
-        this->desiredPositionCentidegrees = positionCentidegrees;
+        this->startCubicTraj(positionCentidegrees);
 }
 
 
