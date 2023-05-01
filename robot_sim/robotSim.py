@@ -4,6 +4,7 @@ import pybullet_data
 import matplotlib.pyplot as plt
 import numpy as np
 import math as m
+import sympy as spy
 
 def main():
     physicsClient = p.connect(p.GUI)#or p.DIRECT for non-graphical version
@@ -159,6 +160,11 @@ def fkWorld(M,Slist,thetaList):
     for i in range(thetaList.shape[0]-1,-1,-1):
         T = np.matmul(expTransform(Slist[:,i],thetaList[i]),T)
     return T
+
+def calcJacobian(T,thetaList):
+    jacobian = np.zeros(6,thetaList.shape[0])
+    for i,theta in enumerate(thetaList):
+        jacobian[:,i] = np.diff
 
 if __name__ == '__main__':
     np.set_printoptions(precision=3,suppress=True)
