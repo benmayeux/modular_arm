@@ -17,7 +17,7 @@ import roboticstoolbox as rtb
 from RTBPyPlot import PyPlot  # copy of base library (rtb) but with changes
 
 """Global states and variables"""
-debugFlag = False  # primarily concerned with serial debug
+debugFlag = True  # primarily concerned with serial debug
 
 frames = 0  # keeps track of the number of frames
 prevNumModules = 1  # keeps track of previous amount of modules for button deletion
@@ -88,6 +88,7 @@ try:
     cs = commandSender(12)  # initialize serial command sender by COM port
     commsOpen = True
     print("Serial connected!")
+    cs.write("reconfigure;")
 except:
     print("No comms")
 
@@ -124,6 +125,8 @@ def windowMatPlot():  # to activate the interactive MatPlot
 def makeRobot(q):  # creates the robot model
     # print(modelType)
     global robot, pyplot, remakePyPlot
+
+    q[0] = -q[0]  # because base axis is pointed downwards
 
     for model in supportedModels:
         if model == modelType:
@@ -217,6 +220,8 @@ def update_serial_data():  # called in main loop
                                     currentY.pop(0)
                                 currentT.append(round(time.time() * 1000) - start_time)
                                 currentY.append(float(line[j].strip()))
+            elif debugFlag:
+                print(line)
             # else:
             #     if line != "":
             #         if not debugFlag and not line.startswith("DEBUG:"):
@@ -276,7 +281,7 @@ def sendSerialInput(sender, app_data, user_data):  # function for obtaining data
 
         x = commandName + "," + str(user_data[2]+1) + "," + str(relatedValue*100)
 
-        if modelType != "cus":
+        if modelType != "cus" and user_data[2] < newNumModules:
             # update matplot for robot sim
             currentQ = robot.q
             # print("Old Q: " + str(currentQ))
@@ -295,7 +300,7 @@ def sendSerialInput(sender, app_data, user_data):  # function for obtaining data
                 x = x + str(tagValue) + ";"
             else:
                 x = x + str(tagValue) + ","
-            qs.append(tagValue/100*math.pi/180)
+                qs.append(tagValue / 100 * math.pi / 180)
         makeRobot(qs)
 
     else:
@@ -366,6 +371,19 @@ def addJointControlInput(config_name, n_modules):  # makes the joint control inp
                                    user_data=["joint" + str(i) + config_name, "setJointPos", i])
                     # user data = [tag of corresponding input_float, Serial command name, joint number]
                 tags.append("joint" + str(i) + config_name)
+
+            with dpg.group(horizontal=True, tag="gripper" + config_name + "Group"):
+                dpg.add_input_float(label="Gripper", tag="gripper" + config_name,
+                                    default_value=0, step=10, user_data=["gripper" + config_name + "slider"],
+                                    callback=updateButton)
+                dpg.add_slider_float(tag="gripper" + config_name + "slider",
+                                     user_data=["gripper" + config_name],
+                                     min_value=-90, max_value=0, default_value=0.0, callback=updateButton, width=300)
+                dpg.add_button(label="Set", callback=sendSerialInput,
+                               user_data=["gripper" + config_name, "setJointPos", n_modules])
+                # user data = [tag of corresponding input_float, Serial command name, joint number]
+            tags.append("gripper" + config_name)
+
             dpg.add_button(label="Set All Joints", callback=sendSerialInput, user_data=[tags, "setAllPos"])
 
 
@@ -452,6 +470,8 @@ def window_change(sender, app_data, user_data):  # callback for changing windows
     # Below are the things needed to be done for keeping track of data and such
     if commsOpen:
         cs.write("reconfigure;")
+        time.sleep(0.01)
+        update_serial_data()
 
     global modelType, numOfDataSets, dataCategories, newNumModules, plotMade, supportedModels
     plotMade = False
@@ -589,6 +609,24 @@ def pausePlots():  # pauses/unpauses plots
     global pausedReadings
     pausedReadings = not pausedReadings
 
+def debugSendSerial(sender, app_data, user_data):
+    x = "setAllPos,"
+    for id, joint in enumerate(user_data):
+        if abs(joint) > 90:
+            print("Joint values too large")
+            return
+        jointValue = joint * 100
+        if id == (len(user_data)-1):
+            x = x + str(jointValue) + ";"
+        else:
+            x = x + str(jointValue) + ","
+    if commsOpen:
+        cs.write(x)
+        print("Serial Sent: " + x)
+    else:
+        print(x)
+
+
 
 """GUI PreLoad"""
 dpg.create_context()  # important line needed at the beginning of every dpg script
@@ -649,6 +687,9 @@ with dpg.window(tag="Primary Window"):
             dpg.add_image("cus_image")
             dpg.add_button(label="Select###cus", callback=window_change, user_data=["Primary Window", "cus_window"], width=cus_width)
 
+        if debugFlag:
+            dpg.add_button(label="Demo", callback=window_change, user_data=["Primary Window", "demo_window"], width=cus_width, height=cus_height )
+
 # make supported model windows
 for model in supportedModels:
     createSupportedWindow(model, supportedModels[model][0])
@@ -662,6 +703,32 @@ with dpg.window(label="Custom", show=False, tag="cus_window"):
     dpg.add_separator()
 
     initialize_custom()
+
+# DEMO WINDOW
+if debugFlag:
+    with dpg.window(label="Demo", show=False, tag="demo_window"):
+        addMenubar()
+        dpg.add_button(label="Back", callback=window_change, user_data=["demo_window", "Primary Window"])
+        with dpg.group():
+            dpg.add_button(label="6Dof+Gripper:Zeros", callback=debugSendSerial, user_data=[0,0,0,0,0,0,0])
+            dpg.add_button(label="6Dof+Gripper:AboveGrabLocation1", callback=debugSendSerial, user_data=[-53, -65, 55, 90, 0, 85, -90])
+            dpg.add_button(label="6Dof+Gripper:BeforeGrabLocation1", callback=debugSendSerial, user_data=[-53, -45, 70, 90, 0, 85, -90])
+            dpg.add_button(label="6Dof+Gripper:OnGrabLocation1", callback=debugSendSerial, user_data=[-53, -45, 70, 90, 0, 85, -35])
+            dpg.add_button(label="6Dof+Gripper:AboveLocation1", callback=debugSendSerial, user_data=[-53, -65, 55, 90, 0, 85, -35])
+            dpg.add_button(label="6Dof+Gripper:AboveLocation2", callback=debugSendSerial, user_data=[53, -65, 55, 90, 0, 85, -35])
+            dpg.add_button(label="6Dof+Gripper:OnPlaceLocation2", callback=debugSendSerial, user_data=[53, -45, 70, 90, 0, 85, -35])
+            dpg.add_button(label="6Dof+Gripper:ReleaseLocation2", callback=debugSendSerial, user_data=[53, -45, 70, 90, 0, 85, -90])
+            dpg.add_button(label="6Dof+Gripper:AboveLocation2Opened", callback=debugSendSerial, user_data=[53, -65, 55, 90, 0, 85, -90])
+            dpg.add_separator()
+            dpg.add_button(label="RRR+Gripper:Zeros", callback=debugSendSerial, user_data=[0, 0, 0, 0])
+            dpg.add_button(label="RRR+Gripper:AboveGrabLocation1", callback=debugSendSerial, user_data=[-50, -55, 70, -90])
+            dpg.add_button(label="RRR+Gripper:BeforeGrabLocation1", callback=debugSendSerial, user_data=[-50, -35, 90, -90])
+            dpg.add_button(label="RRR+Gripper:OnGrabLocation1", callback=debugSendSerial, user_data=[-50, -35, 90, -35])
+            dpg.add_button(label="RRR+Gripper:AboveLocation1", callback=debugSendSerial, user_data=[-50, -55, 70, -35])
+            dpg.add_button(label="RRR+Gripper:AboveLocation2", callback=debugSendSerial, user_data=[50, -55, 70, -35])
+            dpg.add_button(label="RRR+Gripper:OnPlaceLocation2", callback=debugSendSerial, user_data=[50, -35, 90, -35])
+            dpg.add_button(label="RRR+Gripper:ReleaseLocation2", callback=debugSendSerial, user_data=[50, -35, 90, -90])
+            dpg.add_button(label="RRR+Gripper:AboveLocation2Opened", callback=debugSendSerial, user_data=[50, -55, 70, -90])
 
 """Final stuff to display GUI"""
 dpg.create_viewport(title='Modular Arm', width=600, height=300)  # window created by OS to show GUI windows
@@ -700,9 +767,9 @@ while dpg.is_dearpygui_running():  # this starts the runtime loop
         dpg.set_value("matplot", matplot)
         remakePyPlot = False
     else:
-        if commsOpen:
+        if commsOpen and modelType is not None:
             if frames % 100 == 0:
-                cs.write("reconfigure;")
+                # cs.write("reconfigure;")
                 cs.write("poll;")
             if frames % 25 == 0:
                 update_serial_data()  # for serial reading testing
