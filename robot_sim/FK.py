@@ -1,3 +1,4 @@
+from statistics import mode
 import numpy as np
 
 #convets omegas (w) to skew matrix (w hat)
@@ -27,18 +28,42 @@ def fkWorld(M,Slist,thetaList):
         T = np.matmul(expTransform(Slist[:,i],thetaList[i]),T)
     return T
 
+def calcFK(modelType,thetaList):
+    lengthOfRLinks = 0.211201 # in m
+    baseHOffset = 0.049276
+    baseVOffset = 0.2014855
+    if modelType == 'RRR':
+        M = np.array([[1,0,0,0],
+                    [0,1,0,2*lengthOfRLinks+2*baseHOffset],
+                    [0,0,1,baseVOffset],
+                    [0,0,0,1]])
+        print('M: \n', M)
+        Q = np.array([[0,0,0],[0,lengthOfRLinks+baseHOffset,baseVOffset],[0,2*lengthOfRLinks+2*baseHOffset,baseVOffset]])
+        W = np.array([[0,0,1],[-1,0,0],[-1,0,0]])
+        SList = np.zeros((6,thetaList.shape[0]))
+        
+        for i,(wi,qi) in enumerate(zip(W,Q)):
+            vi = np.cross(-wi,qi)
+            SList[:,i] = np.concatenate((wi,vi))
+        
+        T03 = fkWorld(M,SList,thetaList)
+        print("SList: \n", SList)
+        print('Transform at given angles: \n ', T03)
 
-if __name__ == '__main__':
+def debugTest():
     lengthOfRLinks = 0.211201 # in m
     baseHOffset = 0.049276
     baseVOffset = 0.2014855
     np.set_printoptions(precision=3,suppress=True)
-
-    M = np.array([[1,0,0,870],
+    M = np.array([[1,0,0,2*lengthOfRLinks+2*baseHOffset],
                   [0,1,0,0],
-                  [0,0,1,1195],
+                  [0,0,1,baseVOffset],
                   [0,0,0,1]])
-    thetaList = np.array([0,0,0])
+    thetaList = np.array([1.57,0,0])
     SList = np.array([[0,0,0],[0,-1,-1],[1,0,0],[0,475,1075],[0,0,0],[0,-150,-150]])
     T03 = fkWorld(M,SList,thetaList)
-    print(T03)
+    print("T03: \n ",SList)
+
+if __name__ == '__main__':
+    thetaList = np.array([1.57,0,0])
+    calcFK('RRR',thetaList)
